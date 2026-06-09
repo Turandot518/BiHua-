@@ -93,6 +93,28 @@ export default function App() {
     return "其他";
   };
 
+  // Luxury traditional pigment swatches mapping
+  const mineralPigments = [
+    { name: "佛金砂", hex: "#c5a059", meaning: "纯金箔研泥，灿烂庄严" },
+    { name: "赤朱砂", hex: "#b3322a", meaning: "天然辰砂，千年不变之艳红" },
+    { name: "石青黛", hex: "#2e5c8a", meaning: "阿富汗进口青金石，深邃神圣" },
+    { name: "孔雀石绿", hex: "#2f7a5b", meaning: "孔雀石研碎，苍翠灵动" },
+    { name: "高岭白土", hex: "#f4f0ea", meaning: "高岭白垩土，玉润脱俗" }
+  ];
+
+  const getDynastyBadgeStyle = (dynasty: string): string => {
+    if (dynasty.includes("唐") || dynasty.includes("隋")) {
+      return "bg-[#b3322a]/15 text-[#e15b53] border-[#b3322a]/35";
+    }
+    if (dynasty.includes("魏") || dynasty.includes("北")) {
+      return "bg-[#2f7a5b]/15 text-[#59cba6] border-[#2f7a5b]/35";
+    }
+    if (dynasty.includes("夏") || dynasty.includes("宋")) {
+      return "bg-[#2e5c8a]/15 text-[#62a6e9] border-[#2e5c8a]/35";
+    }
+    return "bg-[#c5a059]/15 text-[#e5c17d] border-[#c5a059]/35";
+  };
+
   const currentMural = muralsData[currentMuralIndex];
 
   // Lock hand gestures when entering story view to avoid accidental double-skips
@@ -246,44 +268,51 @@ export default function App() {
             className="flex-1 w-full max-w-6xl mx-auto px-6 sm:px-12 py-10 flex flex-col z-10"
           >
             {/* Elegant Header for Material Library Landing */}
-            <div className="flex flex-col md:flex-row items-center justify-between border-b border-white/10 pb-6 mb-8 gap-4 select-none">
-              <div className="text-left">
-                <div className="flex items-center gap-2 mb-1.5 justify-center md:justify-start">
-                  <Compass className="w-5 h-5 text-[#c5a059] animate-spin-slow" />
-                  <span className="text-[10px] tracking-[0.34em] text-[#c5a059] uppercase font-serif font-semibold">
+            <div className="flex flex-col md:flex-row items-center justify-between border-b border-[#c5a059]/20 pb-6 mb-8 gap-4 select-none relative">
+              <div className="text-left flex-1">
+                <div className="flex items-center gap-3 mb-1.5 justify-center md:justify-start">
+                  <Compass className="w-5.5 h-5.5 text-[#c5a059] animate-spin-slow" />
+                  <span className="text-[10px] tracking-[0.38em] text-[#c5a059] uppercase font-serif font-bold">
                     CLASSICAL DUNHUANG MURAL REPOSITORY
                   </span>
+                  <div className="dunhuang-stamp px-1.5 py-0.5 text-[9px] font-bold rounded-xs ml-1.5 select-none border-red-700/50 text-red-500 scale-90">
+                    莫高藏珍
+                  </div>
                 </div>
-                <h2 className="text-3xl font-serif text-[#f5f2ed] tracking-widest font-light text-center md:text-left">
-                  敦古焕彩 · 数字化藏经阁素材库
+                <h2 className="text-3xl sm:text-4xl font-serif text-[#f5f2ed] tracking-widest font-normal text-center md:text-left drop-shadow-md dunhuang-title-lg">
+                  敦古焕彩 <span className="font-sans font-light text-lg text-stone-500 ml-2 tracking-normal">数字化藏经阁素材库</span>
                 </h2>
-                <p className="text-[#8b7e6a] text-xs mt-2 text-center md:text-left leading-relaxed max-w-xl">
-                  精选莫高窟各朝代传世佳作与其历史典故。在此搜寻仙乐奇珍、品鉴骨法笔迹、赏析天然矿物色彩，挑选心仪画卷一键启封，步入互动修复。
+                <p className="text-[#8b7e6a] text-xs mt-3 text-center md:text-left leading-relaxed max-w-2xl font-serif">
+                  精选莫高窟历代传世名作精品与其历史典故。在此抚拨民乐、品鉴骨法笔迹、赏析天然重彩墨砚，挑选心仪卷轴一键启封，步入交互复原空间。
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                {/* Audio controls for landing screen */}
+              {/* Decorative silk riband banner display */}
+              <div className="flex items-center gap-4 bg-[#14120f]/80 border border-[#c5a059]/15 p-3 rounded-xs shadow-inner">
+                <div className="text-right hidden sm:block">
+                  <span className="block text-[8px] text-[#8b7e6a] tracking-widest uppercase font-sans">EXPERIENCE ENVIRONMENT</span>
+                  <span className="text-[11px] text-[#c5a059] font-serif font-medium">传统声乐：五声音调已载入</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     setAudioEnabled(prev => !prev);
                     audio.playGuzhengPluck(0.5);
                   }}
-                  className={`p-2.5 rounded-xs border transition-all cursor-pointer ${
+                  className={`p-3 rounded-xs border transition-all cursor-pointer ${
                     audioEnabled
-                      ? "bg-[#c5a059]/15 border-[#c5a059]/40 text-[#c5a059]"
+                      ? "bg-[#c5a059]/15 border-[#c5a059]/40 text-[#c5a059] hover:bg-[#c5a059]/30"
                       : "bg-[#1a1815] border-white/10 text-[#8b7e6a]"
                   }`}
-                  title={audioEnabled ? "已启用民乐" : "已静音"}
+                  title={audioEnabled ? "已启用民乐合成音" : "已静音"}
                 >
-                  {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  {audioEnabled ? <Volume2 className="w-4.5 h-4.5" /> : <VolumeX className="w-4.5 h-4.5" />}
                 </button>
               </div>
             </div>
 
             {/* Filters and Search Bar Row */}
-            <div className="bg-[#1a1815] border border-white/5 p-4 rounded-xs mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 select-none">
+            <div className="bg-[#14120f]/90 border border-[#c5a059]/15 p-4 rounded-xs mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 select-none shadow-lg">
               <div className="flex flex-wrap items-center gap-2">
                 {["全部", "北朝 (魏/晋)", "隋唐盛世", "五代西夏"].map((group) => (
                   <button
@@ -293,10 +322,10 @@ export default function App() {
                       setLandingDynastyFilter(group);
                       if (audioEnabled) audio.playChimes();
                     }}
-                    className={`px-4 py-2 text-xs font-serif rounded-xs border transition-all cursor-pointer ${
+                    className={`px-4.5 py-2 text-xs font-serif rounded-xs border transition-all cursor-pointer ${
                       landingDynastyFilter === group
-                        ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-semibold shadow-md"
-                        : "bg-[#0f0e0c] border-white/10 text-[#8b7e6a] hover:text-[#f5f2ed] hover:border-[#c5a059]/40"
+                        ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-semibold shadow-md rounded-sm"
+                        : "bg-[#0f0e0c] border-white/5 text-[#8b7e6a] hover:text-[#f5f2ed] hover:border-[#c5a059]/40"
                     }`}
                   >
                     {group}
@@ -311,7 +340,7 @@ export default function App() {
                   value={landingSearchQuery}
                   onChange={(e) => setLandingSearchQuery(e.target.value)}
                   placeholder="搜索壁画名、朝代、古窟或背景故事..."
-                  className="w-full pl-10 pr-10 py-2 text-xs bg-[#0f0e0c] text-[#f5f2ed] border border-white/10 rounded-xs placeholder-stone-500 focus:outline-none focus:border-[#c5a059]/60 transition-colors font-sans"
+                  className="w-full pl-10 pr-10 py-2 text-xs bg-[#0f0e0c] text-[#f5f2ed] border border-[#c5a059]/15 rounded-xs placeholder-stone-500 focus:outline-none focus:border-[#c5a059]/60 transition-colors font-sans"
                 />
                 {landingSearchQuery && (
                   <button
@@ -372,8 +401,8 @@ export default function App() {
                             whileTap={{ scale: 0.99 }}
                             className={`p-4 rounded-xs border transition-all cursor-pointer flex gap-4 items-center group relative select-none ${
                               isHighlighted
-                                ? "bg-[#14120f]/80 border-[#c5a059] shadow-[0_0_15px_rgba(197,160,89,0.1)]"
-                                : "bg-[#100f0d] border-white/5 hover:border-[#c5a059]/40 hover:bg-[#12110e]"
+                                ? "bg-[#14120f]/90 border-[#c5a059] shadow-[0_0_15px_rgba(197,160,89,0.12)]"
+                                : "bg-[#100f0d]/60 border-white/5 hover:border-[#c5a059]/40 hover:bg-[#12110e]"
                             }`}
                           >
                             {isCurrentRestoring && (
@@ -392,13 +421,13 @@ export default function App() {
                             </div>
 
                             <div className="flex-1 min-w-0 text-left">
-                              <span className="text-[10px] font-sans text-[#c5a059] tracking-wider block">
+                              <span className={`px-2 py-0.5 text-[8px] font-sans border rounded-xs font-semibold mr-2 block w-fit mb-1 ${getDynastyBadgeStyle(mural.dynasty)}`}>
                                 {mural.dynasty} · {mural.cave}
                               </span>
                               <h3 className="text-sm sm:text-base font-serif font-light text-[#f5f2ed] group-hover:text-[#c5a059] transition-colors truncate mt-0.5 font-serif">
                                 {mural.title}
                               </h3>
-                              <p className="text-stone-500 text-[10px] truncate max-w-sm mt-0.5">
+                              <p className="text-stone-500 text-[10px] truncate max-w-sm mt-0.5 font-serif">
                                 {mural.storyTitle}
                               </p>
                             </div>
@@ -427,7 +456,7 @@ export default function App() {
                   </div>
 
                   {/* Right Column: Full Panel Preview Details (col-span-7) */}
-                  <div className="lg:col-span-7 bg-[#13110e] border border-white/5 rounded-xs overflow-hidden flex flex-col shadow-2xl h-[60vh] lg:h-[65vh]">
+                  <div className="lg:col-span-7 bg-[#13110e] border border-[#c5a059]/20 rounded-xs overflow-hidden flex flex-col shadow-2xl h-[60vh] lg:h-[65vh]">
                     {previewMural ? (
                       <div className="flex flex-col h-full overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-stone-950 font-serif">
                         <div className="h-44 sm:h-52 w-full relative bg-stone-950 flex-shrink-0 border-b border-white/5 overflow-hidden">
@@ -435,41 +464,73 @@ export default function App() {
                             src={previewMural.imageSrc}
                             alt={previewMural.title}
                             referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover animate-ribbon-wave"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-[#13110e] via-[#13110e]/30 to-transparent"></div>
                           
-                          <div className="absolute bottom-4 left-6 right-6 text-left">
-                            <span className="px-2.5 py-0.5 text-[9px] font-sans rounded-xs bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#c5a059] uppercase">
-                              {previewMural.dynasty} · {previewMural.cave}
-                            </span>
-                            <h2 className="text-xl sm:text-2xl font-serif text-[#f5f2ed] tracking-wider mt-1.5 drop-shadow-lg font-serif">
-                              {previewMural.title}
-                            </h2>
+                          <div className="absolute bottom-4 left-6 right-6 text-left flex items-end justify-between">
+                            <div>
+                              <span className={`px-2.5 py-0.5 text-[9px] font-sans border rounded-sm ${getDynastyBadgeStyle(previewMural.dynasty)}`}>
+                                {previewMural.dynasty} · {previewMural.cave}
+                              </span>
+                              <h2 className="text-xl sm:text-2xl font-serif text-[#f5f2ed] tracking-wider mt-2.5 drop-shadow-lg font-serif">
+                                {previewMural.title}
+                              </h2>
+                            </div>
+                            <div className="dunhuang-stamp px-2 py-1 text-xs font-bold rounded-xs select-none border-red-800/80 text-red-500 scale-95 origin-bottom-right hidden sm:block">
+                              莫高真迹
+                            </div>
                           </div>
                         </div>
 
-                        <div className="p-6 sm:p-8 flex-1 space-y-5 select-none text-left">
-                          <div>
-                            <div className="flex items-center gap-1.5 text-[#c5a059] font-serif text-xs mb-1.5 font-semibold font-serif">
+                        <div className="p-6 sm:p-8 flex-1 space-y-6 select-none text-left">
+                          <div className="bg-[#181613]/90 p-5 rounded-xs border border-[#c5a059]/15 relative">
+                            {/* Decorative traditional corner lines indicating a historic scroll paper */}
+                            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t border-r border-[#c5a059]/40"></div>
+                            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-[#c5a059]/40"></div>
+                            
+                            <div className="flex items-center gap-1.5 text-[#c5a059] font-serif text-xs mb-2 font-semibold">
                               <BookOpen className="w-4 h-4" />
                               <span>历史因缘 · {previewMural.storyTitle}</span>
                             </div>
-                            <p className="text-stone-400 text-xs leading-relaxed text-justify font-sans">
+                            <p className="text-stone-400 text-xs leading-relaxed text-justify font-serif">
                               {previewMural.storyContent}
                             </p>
+                          </div>
+
+                          {/* Traditional Mineral Colors Palette display */}
+                          <div className="border-t border-white/5 pt-4">
+                            <span className="text-[10px] text-[#c5a059] uppercase tracking-widest font-serif font-bold block mb-2.5">🎨 莫高天然重彩矿物墨系</span>
+                            <div className="flex flex-wrap gap-4 items-center bg-[#0d0c0a] p-3 rounded-xs border border-[#c5a059]/15">
+                              {mineralPigments.map((p, pIdx) => (
+                                <div key={pIdx} className="flex items-center gap-2 group cursor-help relative" title={p.meaning}>
+                                  <div 
+                                    className="w-4 h-4 rounded-full border border-white/10 shadow-[inner_0_1px_4px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-125"
+                                    style={{ backgroundColor: p.hex }}
+                                  ></div>
+                                  <span className="text-[11px] text-stone-400 group-hover:text-[#c5a059] font-serif transition-colors">
+                                    {p.name}
+                                  </span>
+                                  {/* Beautiful absolute tooltips for organic high quality educational feel */}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-36 bg-[#181613] border border-[#c5a059]/30 p-2 rounded-xs text-[9px] text-[#e0d8cf] leading-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-25 shadow-2xl text-center font-serif">
+                                    <span className="font-bold block text-[#c5a059] border-b border-white/5 pb-0.5 mb-1">{p.name}</span>
+                                    {p.meaning}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-white/5">
                             <div>
                               <span className="text-stone-500 text-[10px] uppercase font-serif tracking-widest block mb-1">🖌️ 艺术手法与画论</span>
-                              <p className="text-stone-400 text-[11px] leading-relaxed text-justify font-sans">
+                              <p className="text-stone-400 text-[11px] leading-relaxed text-justify font-serif">
                                 {previewMural.artStyle}
                               </p>
                             </div>
                             <div>
                               <span className="text-[#c5a059] text-[10px] uppercase font-serif tracking-widest block mb-1">🎨 矿物色彩构成</span>
-                              <p className="text-stone-400 text-[11px] leading-relaxed text-justify font-sans">
+                              <p className="text-stone-400 text-[11px] leading-relaxed text-justify font-serif">
                                 {previewMural.colorExplanation}
                               </p>
                             </div>
@@ -479,7 +540,7 @@ export default function App() {
                             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-stone-500 font-sans">
                               <span>修复区：</span>
                               {previewMural.restoredAreas.slice(0, 3).map((area, areaIdx) => (
-                                <span key={areaIdx} className="px-2 py-0.5 bg-[#0f0e0c] border border-white/5 text-stone-400 rounded-sm">
+                                <span key={areaIdx} className="px-2 py-0.5 bg-[#0f0e0c] border border-white/5 text-stone-400 rounded-sm font-serif">
                                   {area}
                                 </span>
                               ))}
@@ -518,21 +579,24 @@ export default function App() {
             className="flex-grow flex flex-col w-full"
           >
             {/* Primary Global Navbar */}
-            <header className="relative z-20 border-b border-white/10 bg-[#0f0e0c]/90 backdrop-blur-md px-12 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <header className="relative z-20 border-b border-[#c5a059]/20 bg-[#070605]/95 backdrop-blur-md px-12 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         
         {/* Brand Calligraph and logo titles */}
         <div className="flex items-center gap-4">
           <div className="relative w-11 h-11 rounded-full bg-gradient-to-tr from-[#1a1815] to-[#0f0e0c] flex items-center justify-center border border-[#c5a059]/30 shadow-[0_0_15px_rgba(197,160,89,0.15)]">
             <Compass className="w-5.5 h-5.5 text-[#c5a059] animate-spin-slow" />
-            <div className="absolute -inset-0.5 border border-[#c5a059]/10 rounded-full animate-pulse"></div>
+            <div className="absolute -inset-0.5 border border-[#c5a059]/15 rounded-full animate-pulse"></div>
           </div>
           <div>
             <div className="flex flex-col">
-              <span className="text-[10px] tracking-[0.3em] uppercase text-[#c5a059] mb-0.5 font-serif select-none">
+              <span className="text-[10px] tracking-[0.34em] uppercase text-[#c5a059] mb-0.5 font-serif select-none">
                 DIGITAL PRESERVATION PROJECT
               </span>
-              <h1 className="text-2xl font-light tracking-widest text-[#f5f2ed] flex items-center gap-3">
-                敦煌遗响 <span className="text-sm text-[#8b7e6a] font-sans tracking-normal uppercase hidden sm:inline-block">Echoes of Dunhuang</span>
+              <h1 className="text-2xl font-normal tracking-widest text-[#f5f2ed] flex items-center gap-2 dunhuang-title-lg">
+                敦煌遗响 <span className="text-xs text-[#8b7e6a] font-sans tracking-normal uppercase hidden sm:inline-block font-thin">Echoes of Dunhuang</span>
+                <span className="dunhuang-stamp px-1 py-0.2 text-[8px] font-bold rounded-xs ml-1 select-none border-red-700/60 text-red-500 scale-90">
+                  莫高圣境
+                </span>
               </h1>
             </div>
           </div>
@@ -599,18 +663,18 @@ export default function App() {
         <div className="w-full lg:flex-1 flex flex-col gap-6">
           
           {/* Mural description card & active info banner */}
-          <div className="bg-[#1a1815] border border-white/5 rounded-xs p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 select-none relative overflow-hidden shadow-xl">
+          <div className="bg-[#14120f] border border-[#c5a059]/20 rounded-xs p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 select-none relative overflow-hidden shadow-xl">
             {/* Soft gold side strip */}
-            <div className="absolute top-0 left-0 w-[3px] h-full bg-[#c5a059]"></div>
+            <div className="absolute top-0 left-0 w-[4px] h-full bg-[#c5a059]"></div>
             
             <div className="pl-3">
               <p className="text-[10px] tracking-[0.25em] text-[#c5a059] font-serif uppercase font-semibold">
                 CURRENT SCENE / 临摹复原空间
               </p>
-              <h2 className="text-xl sm:text-2xl font-serif text-[#f5f2ed] mt-1.5 flex items-center gap-3">
+              <h2 className="text-xl sm:text-2xl font-serif text-[#f5f2ed] mt-1.5 flex items-center gap-3 dunhuang-title-lg">
                 <span>{String(currentMuralIndex + 1).padStart(2, "0")} / {currentMural.title}</span>
-                <span className="text-[11px] font-sans px-2.5 py-0.5 rounded border border-[#c5a059]/20 bg-[#c5a059]/5 text-[#c5a059]">
-                  {currentMural.cave}
+                <span className={`text-[11px] font-sans px-2.5 py-0.5 rounded border ${getDynastyBadgeStyle(currentMural.dynasty)}`}>
+                  {currentMural.cave} · {currentMural.dynasty}
                 </span>
               </h2>
             </div>
@@ -980,7 +1044,7 @@ export default function App() {
               initial={{ scale: 0.94, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.94, opacity: 0 }}
-              className="relative w-full max-w-lg bg-[#1a1815] border border-[#c5a059]/40 rounded-sm p-8 shadow-2xl text-[#e0d8cf] text-center"
+              className="relative w-full max-w-3xl bg-[#1a1815] border border-[#c5a059]/40 rounded-sm p-8 shadow-2xl text-[#e0d8cf] text-center"
             >
               {/* Decorative Corner borders of cultural template */}
               <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-[#c5a059]/30"></div>
@@ -1001,46 +1065,65 @@ export default function App() {
               </div>
 
               <span className="text-[10px] tracking-[0.3em] uppercase text-[#c5a059] block mb-1">Interactive Exhibition Guide</span>
-              <h2 className="text-2xl font-serif text-[#f5f2ed] mb-3 font-light tracking-widest">
+              <h2 className="text-2xl font-serif text-[#f5f2ed] mb-3 font-light tracking-widest dunhuang-title-lg">
                 莫高寻色 · 数字化互动指南
               </h2>
-              <p className="text-[#b5a796] text-xs leading-relaxed max-w-sm mx-auto mb-6 font-sans">
+              <p className="text-[#b5a796] text-xs leading-relaxed max-w-xl mx-auto mb-6 font-serif">
                 欢迎您化身为敦煌艺术数字化保护专家。由于古窟千载风沙浸润，经卷色泽渐归淡雅纯素。请以轻拂灵动之姿，挥手拨筝，临摹出古画本真辉煌色泽！
               </p>
 
-              {/* Steps grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-md mx-auto mb-6">
+              {/* Steps grid showing all 3 interaction modes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left max-w-3xl mx-auto mb-6">
                 
-                {/* Mode 1 */}
-                <div className="bg-[#0f0e0c] p-4 border border-white/5 rounded-xs">
-                  <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
-                    <span>🖐️</span>
-                    <span>神笔复原 (五指张开)</span>
+                {/* Gameplay Mode 1 */}
+                <div className="bg-[#0f0e0c] p-4 border border-[#c5a059]/15 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
+                      <span>🎨</span>
+                      <span>神笔随色 (极色重光)</span>
+                    </div>
+                    <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-serif leading-relaxed">
+                      <li>允许浏览器开启<b>摄像头</b>权限</li>
+                      <li>在对焦点前<b>张开五指</b>并轻缓移动</li>
+                      <li>挥洒天然重彩，拂尘还原壁画真色彩</li>
+                    </ul>
                   </div>
-                  <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-sans leading-relaxed">
-                    <li>允许浏览器开启<b>摄像头</b>权限</li>
-                    <li>在对焦点前<b>张开五指</b>并轻缓移动</li>
-                    <li>拂去历史尘砂，唤醒敦煌本真矿彩</li>
-                  </ul>
                 </div>
 
-                {/* Mode 2 */}
-                <div className="bg-[#0f0e0c] p-4 border border-white/5 rounded-xs">
-                  <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
-                    <span>📜</span>
-                    <span>隔空翻卷 (快速挥扫)</span>
+                {/* Gameplay Mode 2 */}
+                <div className="bg-[#0f0e0c] p-4 border border-[#c5a059]/15 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
+                      <span>👁️</span>
+                      <span>聚光探秘 (神引烛照)</span>
+                    </div>
+                    <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-serif leading-relaxed">
+                      <li>对准屏幕并在空中<b>移动手掌/准星</b></li>
+                      <li>保持<b>手掌舒开</b>即可投射探索光环</li>
+                      <li>穿透斑驳微尘，探秘隐匿起线与底色</li>
+                    </ul>
                   </div>
-                  <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-sans leading-relaxed">
-                    <li>复原进度达到 <b>88%</b> 以上</li>
-                    <li>通过手势<b>自右向左快速空挥</b></li>
-                    <li>画卷随风平移，登临莫高窟下一景</li>
-                  </ul>
+                </div>
+
+                {/* Gameplay Mode 3 */}
+                <div className="bg-[#0f0e0c] p-4 border border-[#c5a059]/15 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
+                      <span>🧩</span>
+                      <span>古极拼图 (千丝碎拼)</span>
+                    </div>
+                    <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-serif leading-relaxed">
+                      <li>在散落割裂的残片上<b>握拳/合拢手指</b></li>
+                      <li>拖移吸附的古典碎瓣，归至正确底盘</li>
+                      <li><b>松开手掌</b>自动磁吸拼合，疗愈缝痕</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 
               {/* Swipe transition visual tip */}
-              <div className="bg-[#c5a059]/10 border border-[#c5a059]/30 p-3.5 rounded-xs max-w-md mx-auto mb-6 text-[11px] text-[#c5a059] leading-relaxed font-sans text-justify">
-                <b>👉 挥云翻卷：</b>完成当卷（88%以上）即可于右下角切换下一窟，或通过<b>手势自右向左快速挥抹</b>，使古卷无缝翻卷，移步换景。
+              <div className="bg-[#c5a059]/10 border border-[#c5a059]/30 p-3.5 rounded-xs max-w-3xl mx-auto mb-6 text-[11px] text-[#c5a059] leading-relaxed font-serif text-justify">
+                <b>👉 隔空翻卷：</b>上色、探索或拼图进度达到 <b>88%</b> 以上，通过手势<b>自右向左快速空挥</b>，使画卷凭风平移，登临下一朝代之敦煌圣景。
               </div>
 
               <button

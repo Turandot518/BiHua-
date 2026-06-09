@@ -87,12 +87,22 @@ export default function StoryPopup({
             <Sparkles className="w-3" />
             <span>敦煌壁画数字化复原成功</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-serif text-[#f5f2ed] tracking-widest leading-relaxed mt-1 flex items-center justify-center gap-2">
+          <h2 className="text-2xl sm:text-3xl font-serif text-[#f5f2ed] tracking-widest leading-relaxed mt-1 flex items-center justify-center gap-2 dunhuang-title-lg">
             《{mural.title}》
           </h2>
-          <p className="text-[#8b7e6a] text-[12px] flex items-center justify-center gap-2 mt-2 font-serif">
+          <p className="text-[#8b7e6a] text-[12px] flex items-center justify-center gap-2 mt-3 font-serif">
             <MapPin className="w-3.5 h-3.5 text-[#c5a059]" />
-            <span className="tracking-widest">{mural.cave} | {mural.dynasty}期</span>
+            <span className="tracking-widest">{mural.cave}</span>
+            <span className="text-stone-600">|</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-sans tracking-wide border font-semibold ${
+              mural.dynasty.includes("唐") || mural.dynasty.includes("隋")
+                ? "bg-[#b3322a]/15 text-[#e15b53] border-[#b3322a]/30"
+                : mural.dynasty.includes("魏") || mural.dynasty.includes("北")
+                ? "bg-[#2f7a5b]/15 text-[#59cba6] border-[#2f7a5b]/30"
+                : "bg-[#c5a059]/15 text-[#e5c17d] border-[#c5a059]/30"
+            }`}>
+              {mural.dynasty}期
+            </span>
           </p>
         </div>
 

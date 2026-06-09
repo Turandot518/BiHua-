@@ -1,11 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=ZCOOL+XiaoWei&family=Cinzel+Decorative:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    background-color: #0f0e0c;
+    background-color: #0c0b09;
     color: #e0d8cf;
     font-family: "Noto Serif SC", "Cinzel", "Playfair Display", Georgia, serif;
+    scrollbar-color: #c5a059 #100f0d;
+    scrollbar-width: thin;
+  }
+
+  /* Custom high-end scrollbars for modern browsers */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f0e0c;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c5a059/30;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c5a059/60;
   }
 }
+
+/* Luxury museum-exhibition UI classes */
+.dunhuang-gold-gradient {
+  background: linear-gradient(135deg, #e5c17d 0%, #c5a059 40%, #876229 100%);
+}
+
+.dunhuang-red-gradient {
+  background: linear-gradient(135deg, #d35400 0%, #b3322a 60%, #781c17 100%);
+}
+
+.dunhuang-green-gradient {
+  background: linear-gradient(135deg, #2ecc71 0%, #2f7a5b 60%, #1c4a36 100%);
+}
+
+.dunhuang-blue-gradient {
+  background: linear-gradient(135deg, #3498db 0%, #2e5c8a 60%, #1a3a5c 100%);
+}
+
+.dunhuang-premium-card {
+  background: rgba(22, 20, 17, 0.85);
+  border: 1px solid rgba(197, 160, 89, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dunhuang-premium-card:hover {
+  border-color: rgba(197, 160, 89, 0.35);
+  box-shadow: 0 12px 40px 0 rgba(197, 160, 89, 0.05), 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Calligraphic heading stylings */
+.dunhuang-title-lg {
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+}
+
+/* Keyframe animations */
+@keyframes gold-drift {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+.animate-gold-drift {
+  animation: gold-drift 6s infinite linear;
+}
+
+@keyframes ribbon-wave {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-8px) scaleY(1.03); }
+}
+
+.animate-ribbon-wave {
+  animation: ribbon-wave 5s infinite ease-in-out;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 22s infinite linear;
+}
+
+/* Decorative silk patterns & seal stamps */
+.dunhuang-stamp {
+  border: 1.5px solid #b3322a;
+  color: #b3322a;
+  font-family: "ZCOOL XiaoWei", serif;
+  transform: rotate(-3deg);
+  box-shadow: inset 0 0 4px rgba(179, 50, 42, 0.2);
+}
+
