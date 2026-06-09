@@ -13,6 +13,7 @@ import MuralJigsaw from "./components/MuralJigsaw";
 import StoryPopup from "./components/StoryPopup";
 import MuralLibrary from "./components/MuralLibrary";
 import MuralSplash from "./components/MuralSplash";
+import CanvasErrorBoundary from "./components/CanvasErrorBoundary";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -67,7 +68,7 @@ export default function App() {
       exit: { opacity: 0, x: -140, skewX: 4 },
       transition: { type: "spring", stiffness: 85, damping: 18 }
     }
-  };
+  } as const;
   
   // Progress and story modals
   const [progress, setProgress] = useState<number>(0);
@@ -275,9 +276,6 @@ export default function App() {
                   <span className="text-[10px] tracking-[0.38em] text-[#c5a059] uppercase font-serif font-bold">
                     CLASSICAL DUNHUANG MURAL REPOSITORY
                   </span>
-                  <div className="dunhuang-stamp px-1.5 py-0.5 text-[9px] font-bold rounded-xs ml-1.5 select-none border-red-700/50 text-red-500 scale-90">
-                    莫高藏珍
-                  </div>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-serif text-[#f5f2ed] tracking-widest font-normal text-center md:text-left drop-shadow-md dunhuang-title-lg">
                   敦古焕彩 <span className="font-sans font-light text-lg text-stone-500 ml-2 tracking-normal">数字化藏经阁素材库</span>
@@ -285,6 +283,12 @@ export default function App() {
                 <p className="text-[#8b7e6a] text-xs mt-3 text-center md:text-left leading-relaxed max-w-2xl font-serif">
                   精选莫高窟历代传世名作精品与其历史典故。在此抚拨民乐、品鉴骨法笔迹、赏析天然重彩墨砚，挑选心仪卷轴一键启封，步入交互复原空间。
                 </p>
+                <div className="mt-4.5 text-[11px] font-sans tracking-wide text-center md:text-left flex items-center justify-center md:justify-start gap-1.5 select-none animate-ribbon-wave">
+                  <span className="text-stone-500">Designed by:</span>
+                  <span className="text-[#c5a059] font-serif font-semibold tracking-widest">
+                    Turandot
+                  </span>
+                </div>
               </div>
 
               {/* Decorative silk riband banner display */}
@@ -477,9 +481,6 @@ export default function App() {
                                 {previewMural.title}
                               </h2>
                             </div>
-                            <div className="dunhuang-stamp px-2 py-1 text-xs font-bold rounded-xs select-none border-red-800/80 text-red-500 scale-95 origin-bottom-right hidden sm:block">
-                              莫高真迹
-                            </div>
                           </div>
                         </div>
 
@@ -594,9 +595,6 @@ export default function App() {
               </span>
               <h1 className="text-2xl font-normal tracking-widest text-[#f5f2ed] flex items-center gap-2 dunhuang-title-lg">
                 敦煌遗响 <span className="text-xs text-[#8b7e6a] font-sans tracking-normal uppercase hidden sm:inline-block font-thin">Echoes of Dunhuang</span>
-                <span className="dunhuang-stamp px-1 py-0.2 text-[8px] font-bold rounded-xs ml-1 select-none border-red-700/60 text-red-500 scale-90">
-                  莫高圣境
-                </span>
               </h1>
             </div>
           </div>
@@ -696,39 +694,41 @@ export default function App() {
 
           {/* The interactive Compositor Canvas element */}
           <div className="relative overflow-hidden w-full rounded-xs">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${currentMuralIndex}-${interactionMode === "jigsaw" ? "jigsaw" : "canvas"}`}
-                initial={transitionVariants[transitionStyle].initial}
-                animate={transitionVariants[transitionStyle].animate}
-                exit={transitionVariants[transitionStyle].exit}
-                transition={transitionVariants[transitionStyle].transition}
-                className="w-full origin-center"
-              >
-                {interactionMode === "jigsaw" ? (
-                  <MuralJigsaw
-                    imageSrc={currentMural.imageSrc}
-                    muralTitle={currentMural.title}
-                    dynasty={currentMural.dynasty}
-                    cave={currentMural.cave}
-                    handData={activeHand}
-                    onComplete={() => {
-                      setProgress(100);
-                    }}
-                    resetTrigger={resetKey}
-                  />
-                ) : (
-                  <MuralCanvas
-                    imageSrc={currentMural.imageSrc}
-                    handData={activeHand}
-                    interactionMode={interactionMode === "spotlight" ? "spotlight" : "paint"}
-                    brushSize={brushSize}
-                    onProgressUpdate={setProgress}
-                    resetTrigger={resetKey}
-                  />
-                )}
-              </motion.div>
-            </AnimatePresence>
+            <CanvasErrorBoundary fallbackKey={`${currentMuralIndex}-${interactionMode}-${resetKey}`}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${currentMuralIndex}-${interactionMode === "jigsaw" ? "jigsaw" : "canvas"}`}
+                  initial={transitionVariants[transitionStyle].initial}
+                  animate={transitionVariants[transitionStyle].animate}
+                  exit={transitionVariants[transitionStyle].exit}
+                  transition={transitionVariants[transitionStyle].transition}
+                  className="w-full origin-center"
+                >
+                  {interactionMode === "jigsaw" ? (
+                    <MuralJigsaw
+                      imageSrc={currentMural.imageSrc}
+                      muralTitle={currentMural.title}
+                      dynasty={currentMural.dynasty}
+                      cave={currentMural.cave}
+                      handData={activeHand}
+                      onComplete={() => {
+                        setProgress(100);
+                      }}
+                      resetTrigger={resetKey}
+                    />
+                  ) : (
+                    <MuralCanvas
+                      imageSrc={currentMural.imageSrc}
+                      handData={activeHand}
+                      interactionMode={interactionMode === "spotlight" ? "spotlight" : "paint"}
+                      brushSize={brushSize}
+                      onProgressUpdate={setProgress}
+                      resetTrigger={resetKey}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </CanvasErrorBoundary>
           </div>
 
           {/* Quick interactive shortcuts beneath the screen */}
@@ -1151,7 +1151,18 @@ export default function App() {
       )}
 
       {/* Absolute Bottom Decorative Border */}
-      <footer className="mt-auto border-t border-white/10 bg-[#0f0e0c] py-6 text-center select-none flex flex-col items-center justify-center gap-1">
+      <footer className="mt-auto border-t border-[#c5a059]/15 bg-[#0a0907] py-6 text-center select-none flex flex-col items-center justify-center gap-1.5 relative overflow-hidden">
+        {/* Decorative dynamic top divider line */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/30 to-transparent"></div>
+        
+        {/* Highly prominent and elegant Designer signature display */}
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="text-[11px] text-stone-400 font-sans tracking-widest uppercase">DESIGNED BY:</span>
+          <span className="text-[#c5a059] font-serif font-semibold tracking-[0.25em] text-sm hover:scale-105 transition-transform duration-300">
+            Turandot
+          </span>
+        </div>
+
         <p className="text-[10px] font-serif text-[#8b7e6a] tracking-[0.3em] uppercase">
           ECHOES OF DUNHUANG · DIGITAL PRESERVATION GROUP
         </p>

@@ -283,135 +283,144 @@ export default function MuralCanvas({
   useEffect(() => {
     if (!imageLoaded || !imgRef.current || !mainCanvasRef.current || !maskCanvasRef.current || !bufferCanvasRef.current) return;
 
-    const mainCtx = mainCanvasRef.current.getContext("2d");
-    const maskCtx = maskCanvasRef.current.getContext("2d");
-    const bufCtx = bufferCanvasRef.current.getContext("2d");
+    try {
+      const mainCtx = mainCanvasRef.current.getContext("2d");
+      const maskCtx = maskCanvasRef.current.getContext("2d");
+      const bufCtx = bufferCanvasRef.current.getContext("2d");
 
-    if (!mainCtx || !maskCtx || !bufCtx) return;
+      if (!mainCtx || !maskCtx || !bufCtx) return;
 
-    const W = dimensions.width;
-    const H = dimensions.height;
+      const W = dimensions.width;
+      const H = dimensions.height;
 
-    // 1. Perform permanent paint on mask if in 'paint' mode and hand/cursor brush is active
-    if (activeBrush && activeBrush.isActive && interactionMode === "paint") {
-      const gradient = maskCtx.createRadialGradient(
-        activeBrush.x,
-        activeBrush.y,
-        brushSize * 0.1,
-        activeBrush.x,
-        activeBrush.y,
-        brushSize
-      );
-      gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
-      gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.7)");
-      gradient.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+      // Prevent crashes on uninitialized, zero, or non-finite dimensions
+      if (W <= 0 || H <= 0 || !isFinite(W) || !isFinite(H)) return;
 
-      maskCtx.fillStyle = gradient;
-      maskCtx.beginPath();
-      maskCtx.arc(activeBrush.x, activeBrush.y, brushSize, 0, Math.PI * 2);
-      maskCtx.fill();
+      // Ensure valid brush dimensions before drawing to avoid IndexSizeError
+      const safeBrushSize = Math.max(1, isFinite(brushSize) ? brushSize : 80);
 
-      // Trigger plucking musical chimes sounds proportional to horizontal motion
-      audio.playGuzhengPluck(activeBrush.x / W);
-    } else if (activeBrush && interactionMode === "spotlight" && activeBrush.isSpotlightOn) {
-      // Play soft notes for spotlight only when the light is actually ON
-      audio.playGuzhengPluck(activeBrush.x / W);
-    }
+      // 1. Perform permanent paint on mask if in 'paint' mode and hand/cursor brush is active
+      if (activeBrush && activeBrush.isActive && interactionMode === "paint") {
+        const gradient = maskCtx.createRadialGradient(
+          activeBrush.x,
+          activeBrush.y,
+          safeBrushSize * 0.1,
+          activeBrush.x,
+          activeBrush.y,
+          safeBrushSize
+        );
+        gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+        gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.7)");
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0.0)");
 
-    // 2. Render Pipeline
-    // A. Draw black-and-white (underlay) fresco onto buffer
-    bufCtx.clearRect(0, 0, W, H);
-    bufCtx.save();
-    // Beautiful ancient stone dust/charcoal look
-    bufCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
-    bufCtx.drawImage(imgRef.current, 0, 0, W, H);
-    bufCtx.restore();
+        maskCtx.fillStyle = gradient;
+        maskCtx.beginPath();
+        maskCtx.arc(activeBrush.x, activeBrush.y, safeBrushSize, 0, Math.PI * 2);
+        maskCtx.fill();
 
-    // B. Draw colored mask layer onto buffer
-    // Lazily initialize persistent offscreen composition canvas to avoid memory allocation churn
-    if (!tempCanvasRef.current) {
-      tempCanvasRef.current = document.createElement("canvas");
-    }
-    const tempCanvas = tempCanvasRef.current;
-    if (tempCanvas.width !== W || tempCanvas.height !== H) {
-      tempCanvas.width = W;
-      tempCanvas.height = H;
-    }
-    const tempCtx = tempCanvas.getContext("2d");
-    
-    if (tempCtx) {
-      // Draw fully colored gorgeous details
-      tempCtx.clearRect(0, 0, W, H);
-      tempCtx.save();
-      tempCtx.drawImage(imgRef.current, 0, 0, W, H);
+        // Trigger plucking musical chimes sounds proportional to horizontal motion
+        audio.playGuzhengPluck(activeBrush.x / W);
+      } else if (activeBrush && interactionMode === "spotlight" && activeBrush.isSpotlightOn) {
+        // Play soft notes for spotlight only when the light is actually ON
+        audio.playGuzhengPluck(activeBrush.x / W);
+      }
 
-      if (interactionMode === "paint") {
-        // Intersect color with the painted mask (white pixels in mask remain colored)
-        tempCtx.globalCompositeOperation = "destination-in";
-        tempCtx.drawImage(maskCanvasRef.current, 0, 0);
-      } else {
-        // Spotlight Mode: Cut a circular flashlight cone around brush coord if light is on
-        tempCtx.globalCompositeOperation = "destination-in";
-        if (activeBrush && activeBrush.isSpotlightOn) {
-          const spotGrad = tempCtx.createRadialGradient(
-            activeBrush.x,
-            activeBrush.y,
-            brushSize * 0.15,
-            activeBrush.x,
-            activeBrush.y,
-            brushSize
-          );
-          spotGrad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
-          spotGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.9)");
-          spotGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+      // 2. Render Pipeline
+      // A. Draw black-and-white (underlay) fresco onto buffer
+      bufCtx.clearRect(0, 0, W, H);
+      bufCtx.save();
+      // Beautiful ancient stone dust/charcoal look
+      bufCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
+      bufCtx.drawImage(imgRef.current, 0, 0, W, H);
+      bufCtx.restore();
 
-          tempCtx.fillStyle = spotGrad;
-          tempCtx.beginPath();
-          tempCtx.arc(activeBrush.x, activeBrush.y, brushSize, 0, Math.PI * 2);
-          tempCtx.fill();
+      // B. Draw colored mask layer onto buffer
+      // Lazily initialize persistent offscreen composition canvas to avoid memory allocation churn
+      if (!tempCanvasRef.current) {
+        tempCanvasRef.current = document.createElement("canvas");
+      }
+      const tempCanvas = tempCanvasRef.current;
+      if (tempCanvas.width !== W || tempCanvas.height !== H) {
+        tempCanvas.width = W;
+        tempCanvas.height = H;
+      }
+      const tempCtx = tempCanvas.getContext("2d");
+      
+      if (tempCtx) {
+        // Draw fully colored gorgeous details
+        tempCtx.clearRect(0, 0, W, H);
+        tempCtx.save();
+        tempCtx.drawImage(imgRef.current, 0, 0, W, H);
+
+        if (interactionMode === "paint") {
+          // Intersect color with the painted mask (white pixels in mask remain colored)
+          tempCtx.globalCompositeOperation = "destination-in";
+          tempCtx.drawImage(maskCanvasRef.current, 0, 0);
         } else {
-          // If no interactive brush or light is off, draw completely transparent (reveals monochrome background)
-          tempCtx.fillStyle = "rgba(0,0,0,0)";
-          tempCtx.fillRect(0,0,W,H);
+          // Spotlight Mode: Cut a circular flashlight cone around brush coord if light is on
+          tempCtx.globalCompositeOperation = "destination-in";
+          if (activeBrush && activeBrush.isSpotlightOn) {
+            const spotGrad = tempCtx.createRadialGradient(
+              activeBrush.x,
+              activeBrush.y,
+              safeBrushSize * 0.15,
+              activeBrush.x,
+              activeBrush.y,
+              safeBrushSize
+            );
+            spotGrad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+            spotGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.9)");
+            spotGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+
+            tempCtx.fillStyle = spotGrad;
+            tempCtx.beginPath();
+            tempCtx.arc(activeBrush.x, activeBrush.y, safeBrushSize, 0, Math.PI * 2);
+            tempCtx.fill();
+          } else {
+            // If no interactive brush or light is off, draw completely transparent (reveals monochrome background)
+            tempCtx.fillStyle = "rgba(0,0,0,0)";
+            tempCtx.fillRect(0,0,W,H);
+          }
+        }
+        tempCtx.restore();
+
+        // Draw masked color overlay onto buffer on top of black&white
+        bufCtx.drawImage(tempCanvas, 0, 0);
+      }
+
+      // 3. Blit double-buffered frame to live main viewport canvas
+      mainCtx.clearRect(0,0,W,H);
+      mainCtx.drawImage(bufferCanvasRef.current, 0, 0);
+
+      // 4. Draw brush visual cue (glowing cursor/circle)
+      if (activeBrush && (isHovered || activeBrush.isAI)) {
+        const shouldShowCue = interactionMode === "paint" || activeBrush.isSpotlightOn;
+        if (shouldShowCue) {
+          // Draw brush radius border outline
+          mainCtx.strokeStyle = activeBrush.isActive ? "rgba(245, 158, 11, 0.45)" : "rgba(245, 158, 11, 0.15)";
+          mainCtx.lineWidth = 1.8;
+          mainCtx.setLineDash([5, 5]);
+          mainCtx.beginPath();
+          mainCtx.arc(activeBrush.x, activeBrush.y, safeBrushSize, 0, Math.PI * 2);
+          mainCtx.stroke();
+          mainCtx.setLineDash([]); // Reset dash
+
+          // Golden particle rings inside the brush
+          mainCtx.fillStyle = "rgba(245, 158, 11, 0.08)";
+          mainCtx.beginPath();
+          mainCtx.arc(activeBrush.x, activeBrush.y, safeBrushSize * 0.4, 0, Math.PI * 2);
+          mainCtx.fill();
+        } else {
+          // If the light is turned off under spotlight mode, show a small dim tracking dot for user awareness
+          mainCtx.fillStyle = "rgba(245, 158, 11, 0.3)";
+          mainCtx.beginPath();
+          mainCtx.arc(activeBrush.x, activeBrush.y, 4, 0, Math.PI * 2);
+          mainCtx.fill();
         }
       }
-      tempCtx.restore();
-
-      // Draw masked color overlay onto buffer on top of black&white
-      bufCtx.drawImage(tempCanvas, 0, 0);
+    } catch (err) {
+      console.error("MuralCanvas paint rendering cycle exception handled:", err);
     }
-
-    // 3. Blit double-buffered frame to live main viewport canvas
-    mainCtx.clearRect(0,0,W,H);
-    mainCtx.drawImage(bufferCanvasRef.current, 0, 0);
-
-    // 4. Draw brush visual cue (glowing cursor/circle)
-    if (activeBrush && (isHovered || activeBrush.isAI)) {
-      const shouldShowCue = interactionMode === "paint" || activeBrush.isSpotlightOn;
-      if (shouldShowCue) {
-        // Draw brush radius border outline
-        mainCtx.strokeStyle = activeBrush.isActive ? "rgba(245, 158, 11, 0.45)" : "rgba(245, 158, 11, 0.15)";
-        mainCtx.lineWidth = 1.8;
-        mainCtx.setLineDash([5, 5]);
-        mainCtx.beginPath();
-        mainCtx.arc(activeBrush.x, activeBrush.y, brushSize, 0, Math.PI * 2);
-        mainCtx.stroke();
-        mainCtx.setLineDash([]); // Reset dash
-
-        // Golden particle rings inside the brush
-        mainCtx.fillStyle = "rgba(245, 158, 11, 0.08)";
-        mainCtx.beginPath();
-        mainCtx.arc(activeBrush.x, activeBrush.y, brushSize * 0.4, 0, Math.PI * 2);
-        mainCtx.fill();
-      } else {
-        // If the light is turned off under spotlight mode, show a small dim tracking dot for user awareness
-        mainCtx.fillStyle = "rgba(245, 158, 11, 0.3)";
-        mainCtx.beginPath();
-        mainCtx.arc(activeBrush.x, activeBrush.y, 4, 0, Math.PI * 2);
-        mainCtx.fill();
-      }
-    }
-
   }, [imageLoaded, activeBrush, dimensions.width, dimensions.height, interactionMode, brushSize, resetTrigger]);
 
   // Separated progress calculator to prevent GPU pipeline stalls and memory bloating on high-frequency gesture updates

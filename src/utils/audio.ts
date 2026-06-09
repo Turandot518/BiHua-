@@ -25,11 +25,20 @@ class DunhuangAudioEngine {
 
   private initContext() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      try {
+        this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch (err) {
+        console.warn("AudioContext creation failed completely:", err);
+        return;
+      }
     }
-    if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume().catch((err) => {
+        console.warn("AudioContext resume failed or rejected:", err);
+      });
     }
+
+    if (!this.ctx) return;
 
     // Set up the beautiful feedback spatial echo network if not already present
     const now = this.ctx.currentTime;

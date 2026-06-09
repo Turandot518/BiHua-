@@ -690,6 +690,14 @@ export default function MuralSplash({
             相互碰撞，编织出跨越一千六百余载的彩色形貌感。
           </p>
 
+          {/* Designed by Turandot signature badge */}
+          <div className="flex items-center gap-1.5 mt-5.5 select-none font-serif text-xs text-[#8b7e6a] tracking-wider">
+            <span className="opacity-60 text-[11px]">Designed by:</span>
+            <span className="text-[#c5a059] font-bold tracking-[0.18em]">
+              Turandot
+            </span>
+          </div>
+
           {/* Visual subtext footer */}
           <div className="text-[#8b7e6a] text-[10px] font-serif tracking-widest mt-5 leading-normal">
             扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
