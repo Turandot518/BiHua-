@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>敦煌遗响 Echoes of Dunhuang</title>
+    <!-- Preconnect to Google Fonts for sub-second text rendering -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;700&family=Cinzel:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Background Prefetch of heavy MediaPipe assets for sub-second first-activation latency -->
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hands.js" as="script">
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js" as="script">
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.js" as="script">
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm" as="fetch" crossorigin="anonymous">
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hands.binarypb" as="fetch" crossorigin="anonymous">
+    <link rel="prefetch" href="https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/hand_landmark_lite.tflite" as="fetch" crossorigin="anonymous">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

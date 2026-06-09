@@ -1,0 +1,6 @@
+{
+  "name": "敦煌壁画手势互动复原",
+  "description": "基于AI与手势识别技术的敦煌壁画交互涂抹复原网页，支持摄像头手势实时追踪‘上色’与鼠标 fallback 操作，包含莫高窟第148窟‘棺盖自启为母说法’与第285窟‘山林禅修故事’的数字化科普与沉浸式体验。",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
