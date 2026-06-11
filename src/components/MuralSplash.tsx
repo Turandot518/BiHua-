@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import { HandData } from "../types";
+import { HandData, DunhuangDayInfo } from "../types";
 import { audio } from "../utils/audio";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -19,7 +19,9 @@ import {
   Eye,
   Hammer,
   Palette,
-  Fingerprint
+  Fingerprint,
+  Calendar,
+  Bookmark
 } from "lucide-react";
 
 // Official Dunhuang Ancient Pigments Collection
@@ -41,6 +43,7 @@ interface MuralSplashProps {
   isCameraEnabled: boolean;
   onToggleCamera: () => void;
   preloadedImagesCount?: number;
+  dunhuangToday?: DunhuangDayInfo | null;
 }
 
 // Falling Lotus Petal details (落花妙境)
@@ -79,7 +82,8 @@ export default function MuralSplash({
   onToggleAudio,
   isCameraEnabled,
   onToggleCamera,
-  preloadedImagesCount = 0
+  preloadedImagesCount = 0,
+  dunhuangToday
 }: MuralSplashProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -879,6 +883,66 @@ export default function MuralSplash({
             <span className="text-[#5984b0] font-semibold">青金石蓝</span>
             相互碰撞，编织出跨越一千六百余载的彩色形貌感。
           </p>
+
+          {/* Real-time Google Search Grounded Culture Card */}
+          {dunhuangToday && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+              className="mt-6 p-4 w-full max-w-xl rounded-sm bg-[#16120e]/85 border border-[#c5a059]/30 shadow-[0_8px_32px_rgba(0,0,0,0.6)] backdrop-blur-md relative overflow-hidden group select-text pointer-events-auto"
+            >
+              {/* Decorative Corner Lines */}
+              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#c5a059]/70" />
+              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#c5a059]/70" />
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#c5a059]/70" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#c5a059]/70" />
+
+              {/* Header category badge */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Bookmark className="w-3 h-3 text-[#ff6459]" />
+                  <span className="text-[10px] font-serif font-semibold text-[#ff6459] tracking-widest leading-none uppercase">
+                    {dunhuangToday.heading || "今日资讯推荐"}
+                  </span>
+                </div>
+                {dunhuangToday.dynasty && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-[#c5a059]/10 text-stone-300 border border-[#c5a059]/20">
+                    {dunhuangToday.dynasty}
+                  </span>
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-sm font-serif font-bold text-[#f5f2ed] tracking-wider mb-2 flex items-center gap-1.5 select-all">
+                <Calendar className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
+                <span>{dunhuangToday.title}</span>
+              </h3>
+
+              {/* Content */}
+              <p className="text-[#c6bdae] text-xs font-serif leading-relaxed line-clamp-4 md:line-clamp-none pr-1">
+                {dunhuangToday.content}
+              </p>
+
+              {/* Footer labels */}
+              <div className="mt-3 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                {dunhuangToday.tags && dunhuangToday.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {dunhuangToday.tags.map((tg, idx) => (
+                      <span key={idx} className="text-[#8b7e6a] font-serif">
+                        #{tg}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {dunhuangToday.source && (
+                  <span className="text-[#8b7e6a]/60 font-serif italic">
+                    出处: {dunhuangToday.source}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          )}
 
           {/* Designed by Turandot signature badge */}
           <div className="flex items-center gap-1.5 mt-5.5 select-none font-serif text-xs text-[#8b7e6a] tracking-wider">

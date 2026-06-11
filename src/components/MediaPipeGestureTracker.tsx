@@ -103,6 +103,7 @@ export default function MediaPipeGestureTracker({
     }
 
     const cdns = [
+      "/mediapipe/",
       "https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/",
       "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/",
       "https://unpkg.com/@mediapipe/hands@0.4.1675469240/",
@@ -480,12 +481,21 @@ export default function MediaPipeGestureTracker({
 
         // Start direct custom requestAnimationFrame tracking feed
         let isProcessing = false;
+        let lastProcessTime = 0;
+        const PROCESS_INTERVAL = 50; // Max 20 frames analyzed per second. Striking the absolute best bridge of fluidity and device low-thermal stability
         
         const processFrame = async () => {
           if (isDestroyed || !isActive) return;
           
-          if (video.readyState === video.HAVE_ENOUGH_DATA && !isProcessing && handsInstanceRef.current) {
+          const now = Date.now();
+          if (
+            video.readyState === video.HAVE_ENOUGH_DATA && 
+            !isProcessing && 
+            handsInstanceRef.current &&
+            (now - lastProcessTime >= PROCESS_INTERVAL)
+          ) {
             isProcessing = true;
+            lastProcessTime = now;
             try {
               await handsInstanceRef.current.send({ image: video });
             } catch (err) {

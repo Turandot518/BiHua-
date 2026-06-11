@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { HandData, InteractionMode } from "./types";
+import { HandData, InteractionMode, DunhuangDayInfo } from "./types";
 import { muralsData } from "./data";
 import { audio } from "./utils/audio";
 import MediaPipeGestureTracker from "./components/MediaPipeGestureTracker";
@@ -82,6 +82,26 @@ export default function App() {
 
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [preloadedImagesCount, setPreloadedImagesCount] = useState<number>(0);
+
+  // Dynamic Google Search Grounding data for Duhuang timely culture
+  const [dunhuangToday, setDunhuangToday] = useState<DunhuangDayInfo | null>(null);
+  const [loadingToday, setLoadingToday] = useState<boolean>(true);
+
+  useEffect(() => {
+    fetch("/api/dunhuang-today")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setDunhuangToday(data.data);
+        }
+      })
+      .catch((e) => {
+        console.error("Error loading Dunhuang dynamic culture:", e);
+      })
+      .finally(() => {
+        setLoadingToday(false);
+      });
+  }, []);
 
   // Background High-Performance Preloader for Dunhuang HD Murals
   useEffect(() => {
@@ -303,6 +323,7 @@ export default function App() {
             isCameraEnabled={isCameraEnabled}
             onToggleCamera={() => setIsCameraEnabled(!isCameraEnabled)}
             preloadedImagesCount={preloadedImagesCount}
+            dunhuangToday={dunhuangToday}
           />
         ) : showLanding ? (
           <motion.div
@@ -359,6 +380,39 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Real-time Google Search Grounded Culture Banner */}
+            {dunhuangToday && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-6 p-3 px-4 rounded-xs bg-[#16120e]/95 border border-[#c5a059]/25 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs relative overflow-hidden pointer-events-auto"
+              >
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#ff6459]" />
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-serif font-bold text-white bg-[#ff6459] rounded-sm tracking-wider uppercase">
+                    {dunhuangToday.heading || "实时快讯"}
+                  </span>
+                  <div className="min-w-0 flex-1 md:flex md:items-center gap-3">
+                    <span className="font-serif font-bold text-[#f5f2ed] tracking-wider shrink-0">
+                      {dunhuangToday.title}
+                      {dunhuangToday.dynasty && (
+                        <span className="text-[10px] text-[#c5a059] ml-1.5 font-normal">({dunhuangToday.dynasty})</span>
+                      )}
+                    </span>
+                    <span className="text-[#c6bdae] font-serif tracking-wide truncate block md:inline md:max-w-2xl select-text">
+                      {dunhuangToday.content}
+                    </span>
+                  </div>
+                </div>
+                {dunhuangToday.source && (
+                  <span className="shrink-0 text-[10px] text-[#8b7e6a] font-serif italic self-end md:self-auto select-all">
+                    出处: {dunhuangToday.source}
+                  </span>
+                )}
+              </motion.div>
+            )}
 
             {/* Filters and Search Bar Row */}
             <div className="bg-[#14120f]/90 border border-[#c5a059]/15 p-4 rounded-xs mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 select-none shadow-lg">

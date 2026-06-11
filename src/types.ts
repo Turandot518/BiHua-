@@ -25,3 +25,13 @@ export interface HandData {
 }
 
 export type InteractionMode = "spotlight" | "paint" | "jigsaw";
+
+export interface DunhuangDayInfo {
+  heading: string;
+  title: string;
+  dynasty?: string;
+  content: string;
+  source?: string;
+  tags?: string[];
+}
+
