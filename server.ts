@@ -5,6 +5,7 @@
 
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
@@ -22,6 +23,17 @@ if (apiKey) {
     }
   });
 }
+
+// Memory Cache to prevent hitting Gemini API quotas or 429 rate limit exceptions on every client page load
+interface CacheContainer {
+  data: any;
+  timestamp: number;
+  isFallback: boolean;
+}
+
+let cachedNews: CacheContainer | null = null;
+const CACHE_DURATION_MS = 60 * 60 * 1000; // Cache valid Gemini responses for 1 hour
+const FALLBACK_CACHE_DURATION_MS = 2 * 60 * 1000; // Cache fallback data for 2 minutes on error to prevent API spamming
 
 const DEFAULT_CULTURAL_DATA = [
   {
@@ -58,6 +70,20 @@ async function startServer() {
 
   // API Route: 获取基于 Search Grounding 的最新动态和每日一画推荐
   app.get("/api/dunhuang-today", async (req, res) => {
+    const now = Date.now();
+
+    // Check if we have valid cached data
+    if (cachedNews) {
+      const isExpired = cachedNews.isFallback 
+        ? (now - cachedNews.timestamp > FALLBACK_CACHE_DURATION_MS)
+        : (now - cachedNews.timestamp > CACHE_DURATION_MS);
+
+      if (!isExpired) {
+        console.log(`Serving cached Dunhuang data. (isFallback: ${cachedNews.isFallback})`);
+        return res.json({ success: true, isCached: true, isFallback: cachedNews.isFallback, data: cachedNews.data });
+      }
+    }
+
     try {
       if (!aiClient) {
         console.warn("GEMINI_API_KEY not found. Using fallback cultural data.");
@@ -104,10 +130,12 @@ async function startServer() {
         }
       }
 
+      let finalData = null;
+
       try {
         const parsedData = JSON.parse(cleanJson);
         if (parsedData.heading && parsedData.title && parsedData.content) {
-          return res.json({ success: true, isFallback: false, data: parsedData });
+          finalData = parsedData;
         } else {
           throw new Error("Missing required fields in parsed JSON data.");
         }
@@ -121,7 +149,7 @@ async function startServer() {
         const sourceMatch = responseText.match(/"source"\s*:\s*"([^"]+)"/);
 
         if (headingMatch && titleMatch && contentMatch) {
-          const regexData = {
+          finalData = {
             heading: headingMatch[1],
             title: titleMatch[1],
             dynasty: dynastyMatch ? dynastyMatch[1] : "敦煌",
@@ -129,30 +157,61 @@ async function startServer() {
             source: sourceMatch ? sourceMatch[1] : "敦煌研究院",
             tags: ["莫高窟", "敦煌文化", "千年沉淀"]
           };
-          return res.json({ success: true, isFallback: false, data: regexData });
+        } else {
+          throw new Error("Both JSON parse and regex failover failed.");
         }
-        throw new Error("Both JSON parse and regex failover failed.");
       }
+
+      if (finalData) {
+        // Cache successful response
+        cachedNews = {
+          data: finalData,
+          timestamp: now,
+          isFallback: false
+        };
+        return res.json({ success: true, isFallback: false, data: finalData });
+      }
+
+      throw new Error("No data captured.");
 
     } catch (err) {
       console.error("Failed to fetch Dunhuang dynamic news:", err);
+      
+      // If we already have a decayed fallback cache or older news cache, we can keep using it
+      if (cachedNews) {
+        console.log("Serving cached Dunhuang news as error failover...");
+        return res.json({ success: true, isCached: true, isFallback: cachedNews.isFallback, data: cachedNews.data, error: String(err) });
+      }
+
+      // Otherwise fetch and cache a random fallback item
       const randomItem = DEFAULT_CULTURAL_DATA[Math.floor(Math.random() * DEFAULT_CULTURAL_DATA.length)];
+      cachedNews = {
+        data: randomItem,
+        timestamp: now,
+        isFallback: true
+      };
       return res.json({ success: true, isFallback: true, data: randomItem, error: String(err) });
     }
   });
 
   // Vite middleware setup for assets and HTML serving
-  if (process.env.NODE_ENV !== "production") {
+  const isProd = process.env.NODE_ENV === "production";
+  const distHtmlPath = path.join(process.cwd(), 'dist', 'index.html');
+  const hasCompiledDist = fs.existsSync(distHtmlPath);
+
+  if (!isProd || !hasCompiledDist) {
+    console.log("Starting development mode with Vite live-reload middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
+    console.log("Starting production mode serving pre-compiled static assets...");
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(distHtmlPath);
     });
   }
 

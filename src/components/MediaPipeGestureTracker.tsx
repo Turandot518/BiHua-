@@ -103,11 +103,11 @@ export default function MediaPipeGestureTracker({
     }
 
     const cdns = [
-      "/mediapipe/",
-      "https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/",
       "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/",
+      "https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/",
       "https://unpkg.com/@mediapipe/hands@0.4.1675469240/",
-      "https://www.gstatic.com/mediapipe/solutions/hands/"
+      "https://www.gstatic.com/mediapipe/solutions/hands/",
+      "/mediapipe/"
     ];
 
     let activeScript: HTMLScriptElement | null = null;
@@ -498,8 +498,33 @@ export default function MediaPipeGestureTracker({
             lastProcessTime = now;
             try {
               await handsInstanceRef.current.send({ image: video });
-            } catch (err) {
+            } catch (err: any) {
               console.error("MediaPipe prediction frame skip:", err);
+              const errMsg = String(err).toLowerCase();
+              if (errMsg.includes("abort") || errMsg.includes("compileerror") || errMsg.includes("wasm") || errMsg.includes("webassembly")) {
+                console.warn("WASM or compilation error detected inside MediaPipe. Attempting self-healing CDN switch...");
+                sharedHandsInstance = null;
+                handsInstanceRef.current = null;
+                
+                const healers = [
+                  "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/",
+                  "https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/",
+                  "https://unpkg.com/@mediapipe/hands@0.4.1675469240/",
+                  "https://www.gstatic.com/mediapipe/solutions/hands/",
+                  "/mediapipe/"
+                ];
+                
+                const currentIdx = healers.indexOf(cdnRootRef.current);
+                if (currentIdx !== -1 && currentIdx < healers.length - 1) {
+                  const nextCdn = healers[currentIdx + 1];
+                  cdnRootRef.current = nextCdn;
+                  console.log(`Self-healing swapped CDN to: ${nextCdn}`);
+                  setRetryTrigger(prev => prev + 1);
+                } else {
+                  cdnRootRef.current = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/";
+                  setRetryTrigger(prev => prev + 1);
+                }
+              }
             } finally {
               isProcessing = false;
             }

@@ -331,10 +331,10 @@ export default function MuralSplash({
 
       // --- 2. Elegant Wavy Harmonic Silk Ribbons (飞天丝带：从左至右，先后缓慢出现，厚重丝滑，宽窄不一如立体交织，且颜色与选定矿物色渐变色融合) ---
       const t = timeRef.current;
-      // Staggered sequential entrance from left to right over 150 frames (~2.5 seconds per ribbon, extremely slow and graceful)
-      const r1Progress = Math.min(1.0, Math.max(0.0, (t - 30) / 150));
-      const r2Progress = Math.min(1.0, Math.max(0.0, (t - 150) / 150));
-      const r3Progress = Math.min(1.0, Math.max(0.0, (t - 270) / 150));
+      // Staggered sequential entrance from left to right over 280 frames (~4.6 seconds per ribbon, extremely slow, majestic and graceful)
+      const r1Progress = Math.min(1.0, Math.max(0.0, (t - 40) / 280));
+      const r2Progress = Math.min(1.0, Math.max(0.0, (t - 220) / 280));
+      const r3Progress = Math.min(1.0, Math.max(0.0, (t - 400) / 280));
 
       const easeOutQuad = (x: number) => 1 - (1 - x) * (1 - x);
       const limitX1 = W * easeOutQuad(r1Progress);
@@ -350,7 +350,9 @@ export default function MuralSplash({
         defaultInnerRGB: [number, number, number],
         gildedColor: string,
         waveProgress: number,
-        baseY: number
+        baseY: number,
+        colorName: string,
+        colorEng: string
       ) => {
         if (waveProgress <= 0 || limitX < 6) return;
         
@@ -494,6 +496,54 @@ export default function MuralSplash({
           ctx.fill();
         }
 
+        // 7. Draw exquisite calligraphy style color name next to the ribbon wave
+        if (waveProgress > 0 && topPoints.length > 0) {
+          const lastIdx = topPoints.length - 1;
+          const endX = topPoints[lastIdx].x;
+          const endY = (topPoints[lastIdx].y + bottomPoints[lastIdx].y) / 2;
+          
+          ctx.save();
+          const textOpacity = Math.min(1.0, waveProgress * 1.8);
+          ctx.globalAlpha = textOpacity;
+          
+          // Align label gracefully relative to the tip of progress, clamped within safe borders to avoid cutting off
+          const labelX = Math.min(W - 100, Math.max(90, endX - 10));
+          const labelY = endY - 42;
+          
+          // Connect label dot to the actual ribbon tip with a beautiful traditional dotted lead line
+          ctx.beginPath();
+          ctx.moveTo(endX, endY - 8);
+          ctx.lineTo(labelX - 16, labelY - 4);
+          ctx.strokeStyle = `rgba(197, 160, 89, ${0.35 * textOpacity})`;
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([2, 2]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          // Small decorative circular capsule representing the dynamic pigment formula color
+          ctx.beginPath();
+          ctx.arc(labelX - 16, labelY - 4, 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgb(${blendedInnerR}, ${blendedInnerG}, ${blendedInnerB})`;
+          ctx.fill();
+          ctx.strokeStyle = gildedColor;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+          
+          // Elegant traditional typeface for color name, enhanced contrast with deep background dropshadow
+          ctx.font = "bold 13px 'STKaiti', 'KaiTi', 'Playfair Display', serif";
+          ctx.fillStyle = "#f5f2ed";
+          ctx.shadowColor = "#000000";
+          ctx.shadowBlur = 6;
+          ctx.fillText(colorName, labelX, labelY);
+          
+          // Small English subtitle underneath
+          ctx.font = "italic 600 7px 'JetBrains Mono', monospace";
+          ctx.fillStyle = "rgba(197, 160, 89, 0.9)";
+          ctx.fillText(colorEng, labelX, labelY + 9);
+          
+          ctx.restore();
+        }
+
         ctx.restore();
       };
 
@@ -538,7 +588,9 @@ export default function MuralSplash({
         [224, 91, 83],       // bright coral/vermilion inner
         "rgba(242, 190, 100, 0.95)", // gold thread
         r1Progress,
-        H * 0.55
+        H * 0.55,
+        "朱砂",
+        "CINNABAR"
       );
 
       // GREEN SILK RIBBON (石绿 / 飞天辅飘带)
@@ -550,7 +602,9 @@ export default function MuralSplash({
         [105, 201, 160],     // lively malachite inner
         "rgba(244, 240, 234, 0.85)", // white jade thread
         r2Progress,
-        H * 0.62
+        H * 0.62,
+        "石绿",
+        "MALACHITE"
       );
 
       // GOLD SILK RIBBON (佛金砂 / 薄绢黄金飘带)
@@ -562,7 +616,9 @@ export default function MuralSplash({
         [242, 211, 150],     // amber dust inner
         "rgba(242, 190, 100, 0.9)", // bright gold border thread
         r3Progress,
-        H * 0.44
+        H * 0.44,
+        "佛金",
+        "OCHRE GOLD"
       );
 
       // --- 3. Sky-Scatter Lotus Petals (落花妙境 - 天女落花) ---
@@ -842,7 +898,7 @@ export default function MuralSplash({
 
         {/* Left-Aligned Typography Content Cluster (Exact Match to video style) */}
         <div 
-          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out"
+          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out max-h-[75vh] overflow-y-auto pr-3 py-2 scrollbar-thin scrollbar-track-stone-900/40 scrollbar-thumb-[#c5a059]/20"
           style={{
             opacity: textRevealed ? 1 : 0,
             transform: textRevealed ? "translateY(0)" : "translateY(40px)",
@@ -944,29 +1000,16 @@ export default function MuralSplash({
             </motion.div>
           )}
 
-          {/* Designed by Turandot signature badge */}
-          <div className="flex items-center gap-1.5 mt-5.5 select-none font-serif text-xs text-[#8b7e6a] tracking-wider">
-            <span className="opacity-60 text-[11px]">Designed by:</span>
-            <span className="text-[#c5a059] font-bold tracking-[0.18em]">
-              Turandot
-            </span>
-          </div>
-
-          {/* Visual subtext footer */}
-          <div className="text-[#8b7e6a] text-[10px] font-serif tracking-widest mt-5 leading-normal">
-            扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
-          </div>
-
           {/* PRIMARY PULSING CALL-TO-ACTION BUTTON */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
             transition={{ duration: 1.0, delay: 0.8 }}
-            className="mt-8 relative"
+            className="mt-6 relative"
           >
             <button
               onClick={handleStartGame}
-              className="relative group px-9 py-4 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-semibold tracking-[0.3em] text-xs rounded-sm shadow-[0_4px_22px_rgba(197,160,89,0.3)] hover:shadow-[0_8px_30px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/40 transition-all cursor-pointer overflow-hidden flex items-center gap-2"
+              className="relative group px-9 py-3.5 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-semibold tracking-[0.3em] text-xs rounded-sm shadow-[0_4px_22px_rgba(197,160,89,0.3)] hover:shadow-[0_8px_30px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/40 transition-all cursor-pointer overflow-hidden flex items-center gap-2"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
               <span className="relative flex items-center justify-center gap-1.5">
@@ -975,6 +1018,19 @@ export default function MuralSplash({
               </span>
             </button>
           </motion.div>
+
+          {/* Designed by Turandot signature badge */}
+          <div className="flex items-center gap-1.5 mt-5 hover:opacity-100 transition-opacity select-none font-serif text-xs text-[#8b7e6a]/70 tracking-wider">
+            <span className="opacity-60 text-[11px]">Designed by:</span>
+            <span className="text-[#c5a059] font-bold tracking-[0.18em]">
+              Turandot
+            </span>
+          </div>
+
+          {/* Visual subtext footer */}
+          <div className="text-[#8b7e6a]/50 text-[10px] font-serif tracking-widest mt-2 leading-normal">
+            扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
+          </div>
         </div>
 
         {/* Right-Aligned Vertical Calligraphy Badge (Mogao Caves Silhouette facade) */}
