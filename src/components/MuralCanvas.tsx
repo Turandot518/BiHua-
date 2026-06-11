@@ -152,7 +152,7 @@ export default function MuralCanvas({
       const { width, height } = entries[0].contentRect;
       
       // Keep beautiful widescreen aspect ratio
-      const targetWidth = Math.max(width, 400);
+      const targetWidth = Math.max(width, 280);
       const targetHeight = Math.min(targetWidth * 0.625, window.innerHeight * 0.62); // 16:10 or capped by viewport
 
       // Round layout parameters to lock integer coordinates, preventing sub-pixel layout recalculation loops
@@ -243,12 +243,12 @@ export default function MuralCanvas({
   const activeBrush = React.useMemo(() => {
     if (handData) {
       // In spotlight mode, light is ON when hand is open (isOpen is true).
-      // In paint mode, painting is always active when hand is tracked in view.
+      // In paint mode, painting is active when the hand is open (five-finger open posture).
       const isSpotlightOn = handData.isOpen;
       return {
         x: handData.x * dimensions.width,
         y: handData.y * dimensions.height,
-        isActive: true, // For paint mode
+        isActive: handData.isOpen, // For paint mode (Only paint when hand is open!)
         isSpotlightOn,
         isOpen: handData.isOpen,
         isAI: true

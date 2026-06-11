@@ -41,7 +41,7 @@ export default function MediaPipeGestureTracker({
 
   // Position buffer for swipe detection
   const xHistoryRef = useRef<{ x: number; time: number }[]>([]);
-  const cdnRootRef = useRef<string>("https://npm.elemecdn.com/@mediapipe/hands@0.4.1675469240/");
+  const cdnRootRef = useRef<string>("https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/");
 
   // Interactive smoothing (exponential moving average) to suppress webcam tracking jitter
   const smoothedXRef = useRef<number | null>(null);

@@ -780,19 +780,19 @@ export default function MuralSplash({
       <div className="absolute inset-0 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.05] pointer-events-none z-0"></div>
 
       {/* ----------------- TOP HIGH-FIDELITY HEADER BAR ----------------- */}
-      <div className="relative z-20 w-full px-8 py-4 bg-[#0d0c0a]/65 border-b border-[#c5a059]/15 backdrop-blur-md pointer-events-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="relative z-20 w-full px-4 sm:px-8 py-3.5 sm:py-4 bg-[#0d0c0a]/65 border-b border-[#c5a059]/15 backdrop-blur-md pointer-events-auto flex flex-row items-center justify-between gap-4">
         {/* Left Side: Museum Collaboratory Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Authentic red block pill */}
-          <div className="bg-[#b3322a] border border-[#ff5b4f]/20 text-white font-serif font-bold text-xs px-2.5 py-1 rounded-sm shadow-md animate-pulse">
+          <div className="bg-[#b3322a] border border-[#ff5b4f]/20 text-white font-serif font-bold text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-sm shadow-md animate-pulse">
             教
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-[#f5f2ed] tracking-wider font-serif">
-              敦煌遗珍 <span className="text-[#c5a059]">·</span> 数字化交互平台
+            <span className="text-xs sm:text-sm font-semibold text-[#f5f2ed] tracking-wider font-serif">
+              敦煌遗珍<span className="hidden xs:inline"> · 数字化交互平台</span>
             </span>
-            <span className="text-[9px] text-[#8b7e6a] tracking-widest font-mono uppercase">
-              MOGAO DIGITAL HERITAGE COLLABORATORY
+            <span className="text-[8px] sm:text-[9px] text-[#8b7e6a] tracking-widest font-mono uppercase truncate max-w-[125px] sm:max-w-none">
+              MOGAO HERITAGE
             </span>
           </div>
         </div>
@@ -800,7 +800,7 @@ export default function MuralSplash({
 
 
         {/* Right Side: Re-construction Engineering context & Switches */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="hidden xl:flex flex-col items-end text-right font-mono text-[9px] text-[#8b7e6a] tracking-widest leading-normal">
             <span>千百幅数字敦煌壁画</span>
             <span>RECONSTRUCTING COOP. EST 2026</span>
@@ -844,7 +844,7 @@ export default function MuralSplash({
 
       {/* GENTLE CALLIGRAPHY PLUCK GUIDE */}
       {!textRevealed && (
-        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/75 border border-[#c5a059]/20 rounded-md p-6 backdrop-blur-sm max-w-xs shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-fade-in">
+        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/75 border border-[#c5a059]/20 rounded-md p-6 backdrop-blur-sm w-[88%] max-w-xs shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-fade-in">
           {/* Pulsing Fingerprint ring */}
           <div className="relative w-14 h-14 flex items-center justify-center mb-4">
             <span className="absolute inset-0 rounded-full bg-[#c5a059]/15 animate-ping" />
@@ -884,21 +884,21 @@ export default function MuralSplash({
       )}
 
       {/* MAIN ATMOSPHERIC WORK AREA WITH CORNER DECO METADATA */}
-      <div className="relative flex-1 w-full max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between pointer-events-none z-10 py-4 gap-8">
+      <div className="relative flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row items-center justify-between pointer-events-none z-10 py-4 gap-4 md:gap-8 overflow-hidden">
         
         {/* BACKGROUND TELEMETRY LABELS (GUTTER PARALLAX STYLED) */}
-        <div className="absolute top-8 left-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col">
+        <div className="absolute top-8 left-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col hidden md:flex">
           <span>CAVE: #381 PRESET</span>
           <span>SYSTEM CHRONOLOGY ACTIVE</span>
         </div>
-        <div className="absolute top-8 right-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col items-end">
+        <div className="absolute top-8 right-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col items-end hidden md:flex">
           <span>INDEX-ACCESS: DEC132514109</span>
           <span>INTER-ACTIVE DIGITIZATION</span>
         </div>
 
         {/* Left-Aligned Typography Content Cluster (Exact Match to video style) */}
         <div 
-          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out max-h-[75vh] overflow-y-auto pr-3 py-2 scrollbar-thin scrollbar-track-stone-900/40 scrollbar-thumb-[#c5a059]/20"
+          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out max-h-[82vh] md:max-h-[75vh] overflow-y-auto pr-2 md:pr-3 py-2 scrollbar-thin scrollbar-track-stone-900/40 scrollbar-thumb-[#c5a059]/20"
           style={{
             opacity: textRevealed ? 1 : 0,
             transform: textRevealed ? "translateY(0)" : "translateY(40px)",
@@ -907,32 +907,32 @@ export default function MuralSplash({
         >
           
           {/* CAVE PROJECT STAMP */}
-          <div className="text-[10px] font-mono font-bold tracking-[0.35em] text-[#c5a059]/60 uppercase mb-3">
+          <div className="text-[10px] font-mono font-bold tracking-[0.35em] text-[#c5a059]/60 uppercase mb-2">
             洞窟透视计划 // CAVE MIRO PROJECT
           </div>
 
           {/* Action indicator prefix */}
-          <div className="font-serif text-[11px] text-[#8b7e6a] tracking-widest mb-2 flex items-center gap-1.5">
+          <div className="font-serif text-[10px] sm:text-[11px] text-[#8b7e6a] tracking-widest mb-1.5 flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#b3322a] animate-ping" />
             <span>1. 双击激光 · 同忆色彩庄严中心</span>
           </div>
 
           {/* High-Exploration Capsule */}
-          <div className="inline-flex items-center gap-1.5 bg-[#b3322a]/10 border border-[#b3322a]/30 px-3 py-1 rounded-full text-[10px] tracking-widest font-semibold font-serif text-[#ff6459] mb-4 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 bg-[#b3322a]/10 border border-[#b3322a]/30 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] tracking-widest font-semibold font-serif text-[#ff6459] mb-3 sm:mb-4 shadow-sm">
             <Sparkles className="w-3 h-3 text-[#ff6459]" />
             <span>高勘探极光 · 助尘物归</span>
           </div>
 
           {/* Authentic Elegant Header */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-light text-[#f5f2ed] tracking-[0.24em] font-serif leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-light text-[#f5f2ed] tracking-[0.24em] font-serif leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)]">
             敦煌壁画神韵
           </h1>
 
           {/* Golden accent bar */}
-          <div className="w-24 h-[1.5px] bg-gradient-to-r from-[#c5a059] to-transparent my-6" />
+          <div className="w-16 sm:w-24 h-[1.5px] bg-gradient-to-r from-[#c5a059] to-transparent my-3 sm:my-6" />
 
           {/* Authentic Description text block */}
-          <p className="text-[#c6bdae] text-xs sm:text-sm font-serif max-w-xl leading-relaxed tracking-wider">
+          <p className="text-[#c6bdae] text-[11px] sm:text-sm font-serif max-w-xl leading-relaxed tracking-wider">
             移动鼠标（或倾斜手机）感应洞窟空间的奇幻深度。敦煌壁画以大自然的名义呈现：
             <span className="text-[#64b092] font-semibold">孔雀石绿（石绿）</span>、
             <span className="text-[#ff6459] font-semibold">硫化汞红（朱砂）</span>及
@@ -944,9 +944,9 @@ export default function MuralSplash({
           {dunhuangToday && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
               transition={{ delay: 0.5, duration: 0.8 }}
-              className="mt-6 p-4 w-full max-w-xl rounded-sm bg-[#16120e]/85 border border-[#c5a059]/30 shadow-[0_8px_32px_rgba(0,0,0,0.6)] backdrop-blur-md relative overflow-hidden group select-text pointer-events-auto"
+              className="mt-4 sm:mt-6 p-3 sm:p-4 w-full max-w-xl rounded-sm bg-[#16120e]/85 border border-[#c5a059]/30 shadow-[0_8px_32px_rgba(0,0,0,0.6)] backdrop-blur-md relative overflow-hidden group select-text pointer-events-auto"
             >
               {/* Decorative Corner Lines */}
               <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#c5a059]/70" />
@@ -958,30 +958,30 @@ export default function MuralSplash({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Bookmark className="w-3 h-3 text-[#ff6459]" />
-                  <span className="text-[10px] font-serif font-semibold text-[#ff6459] tracking-widest leading-none uppercase">
+                  <span className="text-[9px] sm:text-[10px] font-serif font-semibold text-[#ff6459] tracking-widest leading-none uppercase">
                     {dunhuangToday.heading || "今日资讯推荐"}
                   </span>
                 </div>
                 {dunhuangToday.dynasty && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-[#c5a059]/10 text-stone-300 border border-[#c5a059]/20">
+                  <span className="text-[8px] sm:text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-[#c5a059]/10 text-stone-300 border border-[#c5a059]/20">
                     {dunhuangToday.dynasty}
                   </span>
                 )}
               </div>
 
               {/* Title */}
-              <h3 className="text-sm font-serif font-bold text-[#f5f2ed] tracking-wider mb-2 flex items-center gap-1.5 select-all">
+              <h3 className="text-xs sm:text-sm font-serif font-bold text-[#f5f2ed] tracking-wider mb-1.5 flex items-center gap-1.5 select-all">
                 <Calendar className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
                 <span>{dunhuangToday.title}</span>
               </h3>
 
               {/* Content */}
-              <p className="text-[#c6bdae] text-xs font-serif leading-relaxed line-clamp-4 md:line-clamp-none pr-1">
+              <p className="text-[#c6bdae] text-[10px] sm:text-xs font-serif leading-relaxed line-clamp-3 sm:line-clamp-none pr-1">
                 {dunhuangToday.content}
               </p>
 
               {/* Footer labels */}
-              <div className="mt-3 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+              <div className="mt-2.5 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[9px] sm:text-[10px]">
                 {dunhuangToday.tags && dunhuangToday.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {dunhuangToday.tags.map((tg, idx) => (
@@ -1005,11 +1005,11 @@ export default function MuralSplash({
             initial={{ opacity: 0, y: 15 }}
             animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
             transition={{ duration: 1.0, delay: 0.8 }}
-            className="mt-6 relative"
+            className="mt-4 sm:mt-6 relative"
           >
             <button
               onClick={handleStartGame}
-              className="relative group px-9 py-3.5 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-semibold tracking-[0.3em] text-xs rounded-sm shadow-[0_4px_22px_rgba(197,160,89,0.3)] hover:shadow-[0_8px_30px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/40 transition-all cursor-pointer overflow-hidden flex items-center gap-2"
+              className="relative group px-7 sm:px-9 py-2.5 sm:py-3.5 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-semibold tracking-[0.3em] text-[11px] sm:text-xs rounded-sm shadow-[0_4px_22px_rgba(197,160,89,0.3)] hover:shadow-[0_8px_30px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/40 transition-all cursor-pointer overflow-hidden flex items-center gap-2"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
               <span className="relative flex items-center justify-center gap-1.5">
@@ -1020,22 +1020,22 @@ export default function MuralSplash({
           </motion.div>
 
           {/* Designed by Turandot signature badge */}
-          <div className="flex items-center gap-1.5 mt-5 hover:opacity-100 transition-opacity select-none font-serif text-xs text-[#8b7e6a]/70 tracking-wider">
-            <span className="opacity-60 text-[11px]">Designed by:</span>
+          <div className="flex items-center gap-1.5 mt-4 sm:mt-5 hover:opacity-100 transition-opacity select-none font-serif text-[10px] sm:text-xs text-[#8b7e6a]/70 tracking-wider">
+            <span className="opacity-60 text-[10px] sm:text-[11px]">Designed by:</span>
             <span className="text-[#c5a059] font-bold tracking-[0.18em]">
               Turandot
             </span>
           </div>
 
           {/* Visual subtext footer */}
-          <div className="text-[#8b7e6a]/50 text-[10px] font-serif tracking-widest mt-2 leading-normal">
+          <div className="text-[#8b7e6a]/50 text-[9px] sm:text-[10px] font-serif tracking-widest mt-1.5 sm:mt-2 leading-normal">
             扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
           </div>
         </div>
 
         {/* Right-Aligned Vertical Calligraphy Badge (Mogao Caves Silhouette facade) */}
         <div 
-          className="w-full md:w-2/5 flex items-center justify-center pointer-events-auto transition-all duration-[1200ms] ease-out delay-100"
+          className="w-full md:w-2/5 flex items-center justify-center pointer-events-auto transition-all duration-[1200ms] ease-out delay-100 hidden md:flex"
           style={{
             opacity: textRevealed ? 1 : 0,
             transform: textRevealed ? "translateY(0)" : "translateY(40px)",
