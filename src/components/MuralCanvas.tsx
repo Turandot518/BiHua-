@@ -34,6 +34,8 @@ export default function MuralCanvas({
   const bufferCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // Persistent offscreen canvas composition to prevent high-frequency DOM memory leak and GC stutter
   const tempCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Persistent offscreen canvas for a robust grayscale version of our mural (for high-performance mobile support)
+  const grayscaleCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const lastProgressRef = useRef<number>(-1);
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
@@ -172,6 +174,59 @@ export default function MuralCanvas({
     return () => resizeObserver.disconnect();
   }, []);
 
+  // Pre-generate a high-performance, 100% mobile-robust grayscale copy of the current mural
+  const updateGrayscaleCache = (w: number, h: number) => {
+    if (!imgRef.current || w <= 0 || h <= 0) return;
+
+    if (!grayscaleCanvasRef.current) {
+      grayscaleCanvasRef.current = document.createElement("canvas");
+    }
+    const gCanvas = grayscaleCanvasRef.current;
+    gCanvas.width = w;
+    gCanvas.height = h;
+
+    const gCtx = gCanvas.getContext("2d");
+    if (!gCtx) return;
+
+    // First draw standard full-color image
+    gCtx.drawImage(imgRef.current, 0, 0, w, h);
+
+    try {
+      // Direct pixel-level grayscale + contrast + brightness conversion 
+      // This is highly compatible and bypasses picky browser canvas.filter support
+      const imgData = gCtx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      const len = data.length;
+      for (let i = 0; i < len; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Classic Weighted Luma Formula (R:0.299, G:0.587, B:0.114)
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Match the "contrast(1.15) brightness(0.72)" theme
+        let v = (gray - 128) * 1.15 + 128;
+        v = v * 0.72; // Apply matching brightness damping for moody cave look
+        
+        const finalVal = v < 0 ? 0 : (v > 255 ? 255 : v);
+        
+        data[i] = finalVal;
+        data[i + 1] = finalVal;
+        data[i + 2] = finalVal;
+      }
+      gCtx.putImageData(imgData, 0, 0);
+    } catch (err) {
+      console.warn("Direct canvas pixel read failed (likely CORS or browser constraint). Falling back to CSS filters.", err);
+      // Fallback: draw with browser-level filter property (may not work on all mobile browsers, but serves as perfect fallback)
+      gCtx.clearRect(0, 0, w, h);
+      gCtx.save();
+      gCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
+      gCtx.drawImage(imgRef.current, 0, 0, w, h);
+      gCtx.restore();
+    }
+  };
+
   // Initialize or resize persistent mask
   const initMask = (w: number, h: number) => {
     if (!maskCanvasRef.current) {
@@ -191,6 +246,9 @@ export default function MuralCanvas({
     }
     bufferCanvasRef.current.width = w;
     bufferCanvasRef.current.height = h;
+
+    // Cache the grayscale copy
+    updateGrayscaleCache(w, h);
 
     lastProgressRef.current = 0;
     // Defer state propagation to avoid updating during a synchronous layout or rendering tick
@@ -227,6 +285,9 @@ export default function MuralCanvas({
         bufferCanvasRef.current.width = dimensions.width;
         bufferCanvasRef.current.height = dimensions.height;
       }
+
+      // Re-cache our high-performance grayscale canvas at the new dimensions
+      updateGrayscaleCache(dimensions.width, dimensions.height);
     }
   }, [dimensions.width, dimensions.height, imageLoaded]);
 
@@ -296,8 +357,9 @@ export default function MuralCanvas({
       // Prevent crashes on uninitialized, zero, or non-finite dimensions
       if (W <= 0 || H <= 0 || !isFinite(W) || !isFinite(H)) return;
 
-      // Ensure valid brush dimensions before drawing to avoid IndexSizeError
-      const safeBrushSize = Math.max(1, isFinite(brushSize) ? brushSize : 80);
+      // Ensure valid brush dimensions before drawing. Scale dynamically on smaller mobile viewports to prevent massive brush sizes relative to screen size.
+      const scaleMultiplier = W / 800;
+      const safeBrushSize = Math.max(8, (isFinite(brushSize) ? brushSize : 80) * scaleMultiplier);
 
       // 1. Perform permanent paint on mask if in 'paint' mode and hand/cursor brush is active
       if (activeBrush && activeBrush.isActive && interactionMode === "paint") {
@@ -326,13 +388,17 @@ export default function MuralCanvas({
       }
 
       // 2. Render Pipeline
-      // A. Draw black-and-white (underlay) fresco onto buffer
+      // A. Draw black-and-white (underlay) fresco onto buffer from our high-performance mobile-robust grayscale cache
       bufCtx.clearRect(0, 0, W, H);
-      bufCtx.save();
-      // Beautiful ancient stone dust/charcoal look
-      bufCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
-      bufCtx.drawImage(imgRef.current, 0, 0, W, H);
-      bufCtx.restore();
+      if (grayscaleCanvasRef.current) {
+        bufCtx.drawImage(grayscaleCanvasRef.current, 0, 0, W, H);
+      } else {
+        // Fallback in case grayscale list is ever uninitialized
+        bufCtx.save();
+        bufCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
+        bufCtx.drawImage(imgRef.current, 0, 0, W, H);
+        bufCtx.restore();
+      }
 
       // B. Draw colored mask layer onto buffer
       // Lazily initialize persistent offscreen composition canvas to avoid memory allocation churn
