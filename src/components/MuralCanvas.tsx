@@ -76,9 +76,13 @@ export default function MuralCanvas({
       return;
     }
 
+    const isRemote = srcStr.startsWith("http://") || srcStr.startsWith("https://") || srcStr.startsWith("//");
     const img = new Image();
+    if (isRemote && !srcStr.startsWith("data:")) {
+      img.crossOrigin = "anonymous";
+    }
     
-    // Standard direct load (Standard same-origin request is always safest for bundler assets)
+    // Secure CORS-first or immediate load
     img.onload = () => {
       imgRef.current = img;
       setImageLoaded(true);
@@ -86,17 +90,16 @@ export default function MuralCanvas({
     };
 
     img.onerror = () => {
-      console.warn("Mural image failed with regular loading. Trying anonymous CORS mode...", srcStr);
+      console.warn("Mural image failed with anonymous CORS loading. Trying fallback regular mode without CORS...", srcStr);
       
-      const corsImg = new Image();
-      corsImg.crossOrigin = "anonymous";
-      corsImg.onload = () => {
-        imgRef.current = corsImg;
+      const fallbackNoCorsImg = new Image();
+      fallbackNoCorsImg.onload = () => {
+        imgRef.current = fallbackNoCorsImg;
         setImageLoaded(true);
         initMask(dimensions.width, dimensions.height);
       };
       
-      corsImg.onerror = () => {
+      fallbackNoCorsImg.onerror = () => {
         console.error("Mural image completely failed to load:", srcStr);
         
         // Bulletproof Attempt: Create a beautiful themed SVG vector placeholder resembling the actual mural structure
@@ -139,7 +142,7 @@ export default function MuralCanvas({
         fallbackImg.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
       };
       
-      corsImg.src = srcStr;
+      fallbackNoCorsImg.src = srcStr;
     };
 
     img.src = srcStr;
@@ -188,43 +191,26 @@ export default function MuralCanvas({
     const gCtx = gCanvas.getContext("2d");
     if (!gCtx) return;
 
-    // First draw standard full-color image
+    // Build the high-performance, CORS-safe, Safari-compatible ancient grayscale fresco look
+    // 1. Draw the original colorful image
+    gCtx.clearRect(0, 0, w, h);
     gCtx.drawImage(imgRef.current, 0, 0, w, h);
 
-    try {
-      // Direct pixel-level grayscale + contrast + brightness conversion 
-      // This is highly compatible and bypasses picky browser canvas.filter support
-      const imgData = gCtx.getImageData(0, 0, w, h);
-      const data = imgData.data;
-      const len = data.length;
-      for (let i = 0; i < len; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        
-        // Classic Weighted Luma Formula (R:0.299, G:0.587, B:0.114)
-        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        
-        // Match the "contrast(1.15) brightness(0.72)" theme
-        let v = (gray - 128) * 1.15 + 128;
-        v = v * 0.72; // Apply matching brightness damping for moody cave look
-        
-        const finalVal = v < 0 ? 0 : (v > 255 ? 255 : v);
-        
-        data[i] = finalVal;
-        data[i + 1] = finalVal;
-        data[i + 2] = finalVal;
-      }
-      gCtx.putImageData(imgData, 0, 0);
-    } catch (err) {
-      console.warn("Direct canvas pixel read failed (likely CORS or browser constraint). Falling back to CSS filters.", err);
-      // Fallback: draw with browser-level filter property (may not work on all mobile browsers, but serves as perfect fallback)
-      gCtx.clearRect(0, 0, w, h);
-      gCtx.save();
-      gCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
-      gCtx.drawImage(imgRef.current, 0, 0, w, h);
-      gCtx.restore();
-    }
+    // 2. Live canvas compositing to convert to 100% high-quality grayscale.
+    // This technique works on ALL mobile browsers (including iOS Safari and Android Chrome inside any iframe),
+    // and completely bypasses tainted canvas errors or missing ctx.filter support.
+    gCtx.save();
+    gCtx.globalCompositeOperation = "color";
+    gCtx.fillStyle = "#808080"; // Absolute neutral gray (0% saturation)
+    gCtx.fillRect(0, 0, w, h);
+    gCtx.restore();
+
+    // 3. Apply standard blend mode to dim and enhance contrast for a moody Dunhuang stone-cave underlay look in charcoal/dust
+    gCtx.save();
+    gCtx.globalCompositeOperation = "multiply";
+    gCtx.fillStyle = "rgba(0, 0, 0, 0.28)"; // Fine-tuned brightness dampener (matches ~0.72 brightness)
+    gCtx.fillRect(0, 0, w, h);
+    gCtx.restore();
   };
 
   // Initialize or resize persistent mask
@@ -393,10 +379,15 @@ export default function MuralCanvas({
       if (grayscaleCanvasRef.current) {
         bufCtx.drawImage(grayscaleCanvasRef.current, 0, 0, W, H);
       } else {
-        // Fallback in case grayscale list is ever uninitialized
+        // Bulletproof blending fallback in case grayscale cache is ever uninitialized/null
         bufCtx.save();
-        bufCtx.filter = "grayscale(100%) contrast(1.15) brightness(0.72)";
         bufCtx.drawImage(imgRef.current, 0, 0, W, H);
+        bufCtx.globalCompositeOperation = "color";
+        bufCtx.fillStyle = "#808080";
+        bufCtx.fillRect(0, 0, W, H);
+        bufCtx.globalCompositeOperation = "multiply";
+        bufCtx.fillStyle = "rgba(0, 0, 0, 0.28)"; 
+        bufCtx.fillRect(0, 0, W, H);
         bufCtx.restore();
       }
 

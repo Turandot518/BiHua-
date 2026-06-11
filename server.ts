@@ -175,7 +175,7 @@ async function startServer() {
       throw new Error("No data captured.");
 
     } catch (err) {
-      console.error("Failed to fetch Dunhuang dynamic news:", err);
+      console.warn("Soft notice - Using local Dunhuang backup news cache due to API limitations (e.g. rate limit):", String(err));
       
       // If we already have a decayed fallback cache or older news cache, we can keep using it
       if (cachedNews) {
