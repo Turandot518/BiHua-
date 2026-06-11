@@ -40,6 +40,7 @@ interface MuralSplashProps {
   onToggleAudio: () => void;
   isCameraEnabled: boolean;
   onToggleCamera: () => void;
+  preloadedImagesCount?: number;
 }
 
 // Falling Lotus Petal details (落花妙境)
@@ -77,13 +78,28 @@ export default function MuralSplash({
   audioEnabled,
   onToggleAudio,
   isCameraEnabled,
-  onToggleCamera
+  onToggleCamera,
+  preloadedImagesCount = 0
 }: MuralSplashProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("repair");
   const [showGuideTip, setShowGuideTip] = useState<boolean>(true);
+  const [textRevealed, setTextRevealed] = useState<boolean>(false);
+  const [sweepProgress, setSweepProgress] = useState<number>(0);
+  const textRevealedRef = useRef<boolean>(false);
+
+  const [selectedPigment, setSelectedPigment] = useState<typeof DUNHUANG_PIGMENTS[number]>(DUNHUANG_PIGMENTS[0]);
+  const targetRgbRef = useRef<{ r: number; g: number; b: number }>({ r: 197, g: 160, b: 89 });
+  const currentRgbRef = useRef<{ r: number; g: number; b: number }>({ r: 197, g: 160, b: 89 });
+
+  useEffect(() => {
+    const parts = selectedPigment.rgb.split(",").map(Number);
+    if (parts.length === 3) {
+      targetRgbRef.current = { r: parts[0], g: parts[1], b: parts[2] };
+    }
+  }, [selectedPigment]);
 
   // References for tick animation loops
   const petalsRef = useRef<PetalParticle[]>([]);
@@ -192,6 +208,24 @@ export default function MuralSplash({
         const dist = Math.sqrt(dx * dx + dy * dy);
         // Slowly increment the target velocity up
         waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + dist * 0.0035);
+
+        // Calculate sweep progress when user moves cursor
+        if (y > window.innerHeight * 0.25 && y < window.innerHeight * 0.75) {
+          setSweepProgress((prev) => {
+            const next = prev + dist * 0.20; // 0.2% per pixel moved
+            if (next >= 100 && !textRevealedRef.current) {
+              textRevealedRef.current = true;
+              setTextRevealed(true);
+              if (audioEnabled) {
+                audio.playGuzhengPluck(1.3);
+                setTimeout(() => {
+                  audio.playTempleBell();
+                }, 400);
+              }
+            }
+            return Math.min(100, next);
+          });
+        }
       } else {
         waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + 0.02);
       }
@@ -205,6 +239,11 @@ export default function MuralSplash({
       const W = canvas.width;
       const H = canvas.height;
 
+      // Smoothly interpolate the active pigment RGB values for a graceful blending transition
+      currentRgbRef.current.r += (targetRgbRef.current.r - currentRgbRef.current.r) * 0.08;
+      currentRgbRef.current.g += (targetRgbRef.current.g - currentRgbRef.current.g) * 0.08;
+      currentRgbRef.current.b += (targetRgbRef.current.b - currentRgbRef.current.b) * 0.08;
+
       // Update gesture tracker velocity if available
       if (handData) {
         const hX = handData.x * W;
@@ -215,6 +254,24 @@ export default function MuralSplash({
           const dist = Math.sqrt(dx * dx + dy * dy);
           // Scale camera gestures to feed into the waving speed directly
           waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + dist * 0.008);
+
+          // Waving gesture plucking accumulation
+          if (hY > H * 0.25 && hY < H * 0.75) {
+            setSweepProgress((prev) => {
+              const next = prev + dist * 0.35;
+              if (next >= 100 && !textRevealedRef.current) {
+                textRevealedRef.current = true;
+                setTextRevealed(true);
+                if (audioEnabled) {
+                  audio.playGuzhengPluck(1.3);
+                  setTimeout(() => {
+                    audio.playTempleBell();
+                  }, 400);
+                }
+              }
+              return Math.min(100, next);
+            });
+          }
         }
         prevHandRef.current = { x: hX, y: hY };
       } else {
@@ -268,125 +325,245 @@ export default function MuralSplash({
       }
       ctx.restore();
 
-      // --- 2. Elegant Wavy Harmonic Sine Waves (飞天飘带与矿物色彩轨迹) ---
-      // Red Wave (赤朱 / 朱砂)
-      ctx.save();
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 6) {
-        // Spatial frequency stretched perfectly to imitate long flying ribbons in horizontal drift
-        const waveY = H * 0.55 + 
-                     Math.sin(x * 0.0016 + waveTimeRef.current * 0.04) * 78 + 
-                     Math.cos(x * 0.0007 - waveTimeRef.current * 0.018) * 32;
+      // --- 2. Elegant Wavy Harmonic Silk Ribbons (飞天丝带：从左至右，先后缓慢出现，厚重丝滑，宽窄不一如立体交织，且颜色与选定矿物色渐变色融合) ---
+      const t = timeRef.current;
+      // Staggered sequential entrance from left to right over 150 frames (~2.5 seconds per ribbon, extremely slow and graceful)
+      const r1Progress = Math.min(1.0, Math.max(0.0, (t - 30) / 150));
+      const r2Progress = Math.min(1.0, Math.max(0.0, (t - 150) / 150));
+      const r3Progress = Math.min(1.0, Math.max(0.0, (t - 270) / 150));
+
+      const easeOutQuad = (x: number) => 1 - (1 - x) * (1 - x);
+      const limitX1 = W * easeOutQuad(r1Progress);
+      const limitX2 = W * easeOutQuad(r2Progress);
+      const limitX3 = W * easeOutQuad(r3Progress);
+
+      // Centralized ribbon drawer that creates three-dimensional twisting profiles with dynamic mineral color fusion
+      const drawSatinRibbon = (
+        limitX: number,
+        waveYFunc: (x: number) => number,
+        widthFunc: (x: number) => number,
+        defaultBaseRGB: [number, number, number],
+        defaultInnerRGB: [number, number, number],
+        gildedColor: string,
+        waveProgress: number,
+        baseY: number
+      ) => {
+        if (waveProgress <= 0 || limitX < 6) return;
         
-        if (x === 0) ctx.moveTo(x, waveY);
-        else ctx.lineTo(x, waveY);
-      }
-      ctx.strokeStyle = "rgba(179, 50, 42, 0.15)"; // Soft glowing aura
-      ctx.lineWidth = 14;
-      ctx.lineCap = "round";
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(224, 91, 83, 0.65)"; // Inner elegant thread
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-      ctx.restore();
-
-      // Green Wave (孔雀石绿 / 石绿)
-      ctx.save();
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 6) {
-        const waveY = H * 0.62 + 
-                     Math.sin(x * 0.0013 - waveTimeRef.current * 0.045 + Math.PI) * 88 + 
-                     Math.cos(x * 0.0009 + waveTimeRef.current * 0.022) * 38;
-        
-        if (x === 0) ctx.moveTo(x, waveY);
-        else ctx.lineTo(x, waveY);
-      }
-      ctx.strokeStyle = "rgba(47, 122, 91, 0.13)";
-      ctx.lineWidth = 18;
-      ctx.lineCap = "round";
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(105, 201, 160, 0.68)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-
-      // Gold Wave (佛金砂 / 飞天丝雨)
-      ctx.save();
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 8) {
-        const waveY = H * 0.44 + 
-                     Math.sin(x * 0.0022 + waveTimeRef.current * 0.03) * 36 + 
-                     Math.sin(x * 0.0008 - waveTimeRef.current * 0.035) * 18;
-        
-        if (x === 0) ctx.moveTo(x, waveY);
-        else ctx.lineTo(x, waveY);
-      }
-      ctx.strokeStyle = "rgba(197, 160, 89, 0.12)";
-      ctx.lineWidth = 10;
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(242, 211, 150, 0.58)";
-      ctx.lineWidth = 1.0;
-      ctx.stroke();
-      ctx.restore();
-
-      // --- 3. Sky-Scatter Lotus Petals (落花妙境 - 天女落花) ---
-      ctx.save();
-      const activePetals = petalsRef.current;
-      for (let i = 0; i < activePetals.length; i++) {
-        const p = activePetals[i];
-        
-        // Sway sideways gently; respond slightly when ribbon waves are pulsing as well
-        const reactionFactor = 0.5 + waveSpeedRef.current * 1.5;
-        const sway = Math.sin(timeRef.current * 0.006 + p.phase) * (p.amplitude * 0.08) * reactionFactor;
-        p.y += p.vy * 0.38; // Extreme slow motion falling
-        p.x += (p.vx + sway * 0.15);
-        p.angle += p.spinSpeed * 0.38;
-
-        // Respawn if slips off bounds
-        if (p.y > H + 40 || p.x < -40 || p.x > W + 40) {
-          petalsRef.current[i] = createRandomPetal(Math.random() * W, -30);
-          continue;
-        }
-
         ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.angle);
-
-        // Radial colors matching elegant pigment collection
-        const radGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
-        radGrad.addColorStop(0, `rgba(${p.colorObj.rgb}, 0.95)`);
-        radGrad.addColorStop(0.6, `rgba(${p.colorObj.rgb}, 0.6)`);
-        radGrad.addColorStop(1, `rgba(${p.colorObj.rgb}, 0)`);
-        ctx.fillStyle = radGrad;
-
-        ctx.beginPath();
-        if (p.type === "petal") {
-          ctx.moveTo(0, -p.size);
-          ctx.bezierCurveTo(p.size * 0.7, -p.size * 0.25, p.size * 0.6, p.size * 0.75, 0, p.size);
-          ctx.bezierCurveTo(-p.size * 0.6, p.size * 0.75, -p.size * 0.7, -p.size * 0.25, 0, -p.size);
-        } else if (p.type === "leaf") {
-          ctx.arc(0, 0, p.size * 0.8, 0, Math.PI * 1.6, false);
-          ctx.lineTo(0, p.size * 0.15);
-        } else {
-          ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
-          for (let petalIdx = 0; petalIdx < 5; petalIdx++) {
-            ctx.rotate((Math.PI * 2) / 5);
-            ctx.ellipse(p.size * 0.35, 0, p.size * 0.25, p.size * 0.14, 0, 0, Math.PI * 2);
-          }
+        const topPoints: {x: number; y: number}[] = [];
+        const bottomPoints: {x: number; y: number}[] = [];
+        
+        // Build coordinates along the horizontal axis
+        for (let x = 0; x <= limitX; x += 6) {
+          const cy = waveYFunc(x);
+          const w = widthFunc(x);
+          topPoints.push({ x, y: cy - w / 2 });
+          bottomPoints.push({ x, y: cy + w / 2 });
         }
+        
+        const pR = currentRgbRef.current.r;
+        const pG = currentRgbRef.current.g;
+        const pB = currentRgbRef.current.b;
+
+        // Blend ribbon's default color with currently selected pigment color (55% intensity of selected pigment)
+        const blendedBaseR = Math.round(defaultBaseRGB[0] * 0.45 + pR * 0.55);
+        const blendedBaseG = Math.round(defaultBaseRGB[1] * 0.45 + pG * 0.55);
+        const blendedBaseB = Math.round(defaultBaseRGB[2] * 0.45 + pB * 0.55);
+
+        const blendedInnerR = Math.round(defaultInnerRGB[0] * 0.45 + Math.min(255, pR * 1.25) * 0.55);
+        const blendedInnerG = Math.round(defaultInnerRGB[1] * 0.45 + Math.min(255, pG * 1.25) * 0.55);
+        const blendedInnerB = Math.round(defaultInnerRGB[2] * 0.45 + Math.min(255, pB * 1.25) * 0.55);
+
+        // Interactive luster factor when ribbon is dragged (based on waveSpeed)
+        const dragShimmer = Math.min(1.0, waveSpeedRef.current * 0.65);
+
+        // 1. Draw glowing aura back shadow (matches active mineral pigment hue)
+        ctx.beginPath();
+        ctx.moveTo(topPoints[0].x, topPoints[0].y);
+        for (let i = 1; i < topPoints.length; i++) {
+          ctx.lineTo(topPoints[i].x, topPoints[i].y);
+        }
+        for (let i = bottomPoints.length - 1; i >= 0; i--) {
+          ctx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${pR}, ${pG}, ${pB}, ${0.12 + dragShimmer * 0.12})`;
         ctx.fill();
 
-        ctx.strokeStyle = `rgba(${p.colorObj.rgb}, 0.32)`;
-        ctx.lineWidth = 1;
+        // 2. Draw outer thick silk fabric base
+        ctx.beginPath();
+        ctx.moveTo(topPoints[0].x, topPoints[0].y);
+        for (let i = 1; i < topPoints.length; i++) {
+          ctx.lineTo(topPoints[i].x, topPoints[i].y);
+        }
+        for (let i = bottomPoints.length - 1; i >= 0; i--) {
+          ctx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
+        }
+        ctx.closePath();
+
+        // Elegant horizontal sheen gradient: from deep (saturated) to light (shimmering mineral dust)
+        const baseGrad = ctx.createLinearGradient(0, 0, limitX, 0);
+        const deepR = Math.round(blendedBaseR * (0.8 - dragShimmer * 0.35));
+        const deepG = Math.round(blendedBaseG * (0.8 - dragShimmer * 0.35));
+        const deepB = Math.round(blendedBaseB * (0.8 - dragShimmer * 0.35));
+
+        const lightR = Math.round(Math.min(255, blendedBaseR * (1.15 + dragShimmer * 0.4)));
+        const lightG = Math.round(Math.min(255, blendedBaseG * (1.15 + dragShimmer * 0.4)));
+        const lightB = Math.round(Math.min(255, blendedBaseB * (1.15 + dragShimmer * 0.4)));
+
+        baseGrad.addColorStop(0, `rgb(${deepR}, ${deepG}, ${deepB})`);
+        baseGrad.addColorStop(0.5, `rgb(${blendedBaseR}, ${blendedBaseG}, ${blendedBaseB})`);
+        baseGrad.addColorStop(1, `rgb(${lightR}, ${lightG}, ${lightB})`);
+        ctx.fillStyle = baseGrad;
+        ctx.fill();
+
+        // 3. Draw inner contrasting silk ribbon (represents layered stripes from visual reference)
+        ctx.beginPath();
+        ctx.moveTo(topPoints[0].x, topPoints[0].y + (bottomPoints[0].y - topPoints[0].y) * 0.22);
+        for (let i = 1; i < topPoints.length; i++) {
+          const w = bottomPoints[i].y - topPoints[i].y;
+          ctx.lineTo(topPoints[i].x, topPoints[i].y + w * 0.22);
+        }
+        for (let i = bottomPoints.length - 1; i >= 0; i--) {
+          const w = bottomPoints[i].y - topPoints[i].y;
+          ctx.lineTo(bottomPoints[i].x, topPoints[i].y + w * 0.78);
+        }
+        ctx.closePath();
+        
+        const innerGrad = ctx.createLinearGradient(0, 0, limitX, 0);
+        const innerDeepR = Math.round(blendedInnerR * (0.8 - dragShimmer * 0.35));
+        const innerDeepG = Math.round(blendedInnerG * (0.8 - dragShimmer * 0.35));
+        const innerDeepB = Math.round(blendedInnerB * (0.8 - dragShimmer * 0.35));
+
+        const innerLightR = Math.round(Math.min(255, blendedInnerR * (1.18 + dragShimmer * 0.4)));
+        const innerLightG = Math.round(Math.min(255, blendedInnerG * (1.18 + dragShimmer * 0.4)));
+        const innerLightB = Math.round(Math.min(255, blendedInnerB * (1.18 + dragShimmer * 0.4)));
+
+        innerGrad.addColorStop(0, `rgb(${innerDeepR}, ${innerDeepG}, ${innerDeepB})`);
+        innerGrad.addColorStop(0.6, `rgb(${blendedInnerR}, ${blendedInnerG}, ${blendedInnerB})`);
+        innerGrad.addColorStop(1, `rgb(${innerLightR}, ${innerLightG}, ${innerLightB})`);
+        ctx.fillStyle = innerGrad;
+        ctx.fill();
+
+        // 4. Draw narrow central shimmering gold thread (classical Chinese silk embellishments)
+        ctx.beginPath();
+        for (let i = 0; i < topPoints.length; i++) {
+          const cy = (topPoints[i].y + bottomPoints[i].y) / 2;
+          if (i === 0) ctx.moveTo(topPoints[i].x, cy);
+          else ctx.lineTo(topPoints[i].x, cy);
+        }
+        ctx.strokeStyle = gildedColor;
+        ctx.lineWidth = 1.6;
         ctx.stroke();
 
-        ctx.restore();
-      }
-      ctx.restore();
+        // 5. Draw top and bottom gilded borders (very fine lines as the ribbon's golden seams)
+        ctx.beginPath();
+        ctx.moveTo(topPoints[0].x, topPoints[0].y);
+        for (let i = 1; i < topPoints.length; i++) {
+          ctx.lineTo(topPoints[i].x, topPoints[i].y);
+        }
+        ctx.strokeStyle = gildedColor;
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
 
+        ctx.beginPath();
+        ctx.moveTo(bottomPoints[0].x, bottomPoints[0].y);
+        for (let i = 1; i < bottomPoints.length; i++) {
+          ctx.lineTo(bottomPoints[i].x, bottomPoints[i].y);
+        }
+        ctx.strokeStyle = "rgba(242, 190, 100, 0.4)";
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // 6. Draw running tip (glowing calligraphy ink spark showing where ribbon writes on)
+        if (waveProgress < 1.0 && topPoints.length > 0) {
+          const lastIdx = topPoints.length - 1;
+          const endX = topPoints[lastIdx].x;
+          const endY = (topPoints[lastIdx].y + bottomPoints[lastIdx].y) / 2;
+          
+          ctx.beginPath();
+          ctx.arc(endX, endY, 6, 0, Math.PI * 2);
+          ctx.fillStyle = gildedColor;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = gildedColor;
+          ctx.fill();
+        }
+
+        ctx.restore();
+      };
+
+      // Curves and mathematical varying-width functions to recreate twisting satin ribbons
+      const waveY1 = (x: number) => H * 0.55 + 
+                     Math.sin(x * 0.0016 + waveTimeRef.current * 0.04) * 78 + 
+                     Math.cos(x * 0.0007 - waveTimeRef.current * 0.018) * 32;
+
+      const width1 = (x: number) => {
+        const fold = Math.sin(x * 0.003 - waveTimeRef.current * 0.015);
+        const foldAbs = Math.abs(fold); 
+        return 12 + 56 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.007));
+      };
+
+      const waveY2 = (x: number) => H * 0.62 + 
+                     Math.sin(x * 0.0013 - waveTimeRef.current * 0.045 + Math.PI) * 88 + 
+                     Math.cos(x * 0.0009 + waveTimeRef.current * 0.022) * 38;
+
+      const width2 = (x: number) => {
+        const fold = Math.cos(x * 0.0025 + waveTimeRef.current * 0.01 + 1.5);
+        const foldAbs = Math.abs(fold);
+        return 10 + 60 * foldAbs * (0.75 + 0.25 * Math.sin(x * 0.005));
+      };
+
+      const waveY3 = (x: number) => H * 0.44 + 
+                     Math.sin(x * 0.0022 + waveTimeRef.current * 0.03) * 36 + 
+                     Math.sin(x * 0.0008 - waveTimeRef.current * 0.035) * 18;
+
+      const width3 = (x: number) => {
+        const fold = Math.sin(x * 0.004 - waveTimeRef.current * 0.02 + 0.8);
+        const foldAbs = Math.abs(fold);
+        return 8 + 40 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.01));
+      };
+
+      // Draw the three satin silk ribbons with their distinct colors and geometries fuzed with the active mineral pigment
+      // RED SILK RIBBON (朱砂 / 飞天主飘带)
+      drawSatinRibbon(
+        limitX1,
+        waveY1,
+        width1,
+        [179, 50, 42],       // deep crimson base
+        [224, 91, 83],       // bright coral/vermilion inner
+        "rgba(242, 190, 100, 0.95)", // gold thread
+        r1Progress,
+        H * 0.55
+      );
+
+      // GREEN SILK RIBBON (石绿 / 飞天辅飘带)
+      drawSatinRibbon(
+        limitX2,
+        waveY2,
+        width2,
+        [47, 122, 91],       // deep jade green base
+        [105, 201, 160],     // lively malachite inner
+        "rgba(244, 240, 234, 0.85)", // white jade thread
+        r2Progress,
+        H * 0.62
+      );
+
+      // GOLD SILK RIBBON (佛金砂 / 薄绢黄金飘带)
+      drawSatinRibbon(
+        limitX3,
+        waveY3,
+        width3,
+        [197, 160, 89],      // dunhuang gold ochre base
+        [242, 211, 150],     // amber dust inner
+        "rgba(242, 190, 100, 0.9)", // bright gold border thread
+        r3Progress,
+        H * 0.44
+      );
+
+      // --- 3. Sky-Scatter Lotus Petals (落花妙境 - 天女落花) ---
+      // Disabled falling particles/dots per user request to keep the three ribbons clear
+      
       // --- 4. Fireworks Sparks (彩色气流与触控微光) ---
       ctx.save();
       const activeSparks = sparksRef.current;
@@ -505,6 +682,20 @@ export default function MuralSplash({
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     triggerFirework(e.clientX, e.clientY);
+    setSweepProgress((prev) => {
+      const next = prev + 35; // Click contributes to opening scroll
+      if (next >= 100 && !textRevealedRef.current) {
+        textRevealedRef.current = true;
+        setTextRevealed(true);
+        if (audioEnabled) {
+          audio.playGuzhengPluck(1.3);
+          setTimeout(() => {
+            audio.playTempleBell();
+          }, 400);
+        }
+      }
+      return Math.min(100, next);
+    });
   };
 
   return (
@@ -546,56 +737,7 @@ export default function MuralSplash({
           </div>
         </div>
 
-        {/* Center: Interactive Elegant Tab Selection System */}
-        <div className="flex items-center bg-stone-950/85 border border-[#c5a059]/30 rounded-full p-1 shadow-inner gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveTab("perspective");
-              if (audioEnabled) audio.playGuzhengPluck(0.9);
-            }}
-            className={`cursor-pointer px-4 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-serif transition-all ${
-              activeTab === "perspective"
-                ? "bg-[#c5a059] text-[#0f0e0c] font-medium shadow-md"
-                : "text-stone-400 hover:text-stone-200 hover:bg-stone-900/60"
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>首创透视照片</span>
-          </button>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveTab("repair");
-              if (audioEnabled) audio.playGuzhengPluck(1.1);
-            }}
-            className={`cursor-pointer px-4 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-serif transition-all ${
-              activeTab === "repair"
-                ? "bg-[#c5a059] text-[#0f0e0c] font-medium shadow-md"
-                : "text-stone-400 hover:text-stone-200 hover:bg-stone-900/60"
-            }`}
-          >
-            <Hammer className="w-3.5 h-3.5" />
-            <span>壁画交互修复</span>
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveTab("pigments");
-              if (audioEnabled) audio.playGuzhengPluck(1.2);
-            }}
-            className={`cursor-pointer px-4 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-serif transition-all ${
-              activeTab === "pigments"
-                ? "bg-[#c5a059] text-[#0f0e0c] font-medium shadow-md"
-                : "text-stone-400 hover:text-stone-200 hover:bg-stone-900/60"
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span>矿物色彩解密</span>
-          </button>
-        </div>
 
         {/* Right Side: Re-construction Engineering context & Switches */}
         <div className="flex items-center gap-4">
@@ -640,6 +782,47 @@ export default function MuralSplash({
         </div>
       </div>
 
+      {/* GENTLE CALLIGRAPHY PLUCK GUIDE */}
+      {!textRevealed && (
+        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/75 border border-[#c5a059]/20 rounded-md p-6 backdrop-blur-sm max-w-xs shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-fade-in">
+          {/* Pulsing Fingerprint ring */}
+          <div className="relative w-14 h-14 flex items-center justify-center mb-4">
+            <span className="absolute inset-0 rounded-full bg-[#c5a059]/15 animate-ping" />
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+            >
+              <Fingerprint className="w-10 h-10 text-[#c5a059] opacity-90" />
+            </motion.div>
+          </div>
+          <span className="text-[10px] tracking-[0.25em] text-[#c5a059]/80 font-mono block mb-1">
+            SWIPE TO REVEAL ALBUM
+          </span>
+          <h3 className="text-[15px] font-serif font-semibold text-[#f5f2ed] tracking-widest mb-1.5">
+            触碰屏幕 · 唤醒庄严
+          </h3>
+          <p className="text-[11px] text-[#8b7e6a] leading-relaxed font-serif px-2">
+            滑动或点击屏幕，即可解密经卷、开卷圣境。
+          </p>
+          
+          {/* Aesthetic progress indicator */}
+          <div className="w-full h-[3px] bg-stone-900/90 rounded-full overflow-hidden mt-4.5 border border-white/5">
+            <div 
+              className="h-full bg-gradient-to-r from-[#b3322a] via-[#c5a059] to-[#2f7a5b] transition-all duration-300 rounded-full"
+              style={{ width: `${sweepProgress}%` }}
+            />
+          </div>
+          <span className="text-[9px] text-[#c5a059] font-mono tracking-widest mt-2 uppercase flex flex-col items-center gap-1">
+            <span>开卷解密: {Math.round(sweepProgress)}%</span>
+            <span className="text-[#8b7e6a] text-[8px] tracking-wider font-serif normal-case mt-0.5">
+              {preloadedImagesCount < 5 
+                ? `正在召回千年画幅色彩 (${preloadedImagesCount}/5)...` 
+                : "千年画卷神采归位 ✨"}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* MAIN ATMOSPHERIC WORK AREA WITH CORNER DECO METADATA */}
       <div className="relative flex-1 w-full max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between pointer-events-none z-10 py-4 gap-8">
         
@@ -654,7 +837,14 @@ export default function MuralSplash({
         </div>
 
         {/* Left-Aligned Typography Content Cluster (Exact Match to video style) */}
-        <div className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30">
+        <div 
+          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out"
+          style={{
+            opacity: textRevealed ? 1 : 0,
+            transform: textRevealed ? "translateY(0)" : "translateY(40px)",
+            pointerEvents: textRevealed ? "auto" : "none"
+          }}
+        >
           
           {/* CAVE PROJECT STAMP */}
           <div className="text-[10px] font-mono font-bold tracking-[0.35em] text-[#c5a059]/60 uppercase mb-3">
@@ -706,7 +896,7 @@ export default function MuralSplash({
           {/* PRIMARY PULSING CALL-TO-ACTION BUTTON */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
             transition={{ duration: 1.0, delay: 0.8 }}
             className="mt-8 relative"
           >
@@ -723,43 +913,128 @@ export default function MuralSplash({
           </motion.div>
         </div>
 
-        {/* Right-Aligned Vertical Calligraphy Badge ("莫高窟 DUNHUANG CAVERNS") */}
-        <div className="w-full md:w-2/5 flex items-center justify-center pointer-events-auto">
-          {/* Circular Badge Ring */}
+        {/* Right-Aligned Vertical Calligraphy Badge (Mogao Caves Silhouette facade) */}
+        <div 
+          className="w-full md:w-2/5 flex items-center justify-center pointer-events-auto transition-all duration-[1200ms] ease-out delay-100"
+          style={{
+            opacity: textRevealed ? 1 : 0,
+            transform: textRevealed ? "translateY(0)" : "translateY(40px)",
+            pointerEvents: textRevealed ? "auto" : "none"
+          }}
+        >
+          {/* Mogao Caves Pagoda Silhouette and Calligraphy Title */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 0.95, scale: 1 }}
+            animate={textRevealed ? { opacity: 0.95, scale: 1 } : { opacity: 0, scale: 0.85 }}
             transition={{ duration: 1.6, ease: "easeOut" }}
             onClick={() => {
-              // Interactive ring click triggers multiple fireworks centered on right side
+              // Interactive facade click triggers multiple fireworks centered on right side
               const w = window.innerWidth;
               const h = window.innerHeight;
               triggerFirework(w * 0.7, h * 0.5);
               triggerFirework(w * 0.72, h * 0.53);
             }}
-            className="relative cursor-pointer w-48 h-48 sm:w-56 sm:h-56 rounded-full border border-[#c5a059]/40 bg-[#0e0c0a]/75 backdrop-blur-sm shadow-[0_0_40px_rgba(197,160,89,0.12)] flex flex-col items-center justify-center hover:border-[#c5a059]/80 transition-all"
-            title="莫高窟数字密印 - 点击解密色彩"
+            className="relative cursor-pointer w-64 h-[350px] flex flex-col items-center justify-between transition-all hover:scale-105 active:scale-95 group pb-2"
+            title="莫高窟数字九层楼 - 点击解密色彩"
           >
-            {/* Compass-like fine-grained lines */}
-            <div className="absolute inset-2 block rounded-full border border-[#c5a059]/15 border-dashed pointer-events-none" />
-            <div className="absolute inset-4 block rounded-full border border-[#c5a059]/5 pointer-events-none" />
+            {/* Outer golden rim highlights */}
+            
+            {/* The Pagoda Silhouette (Placed relative & proud at the top) */}
+            <div className="relative w-full h-[220px] flex items-center justify-center z-10">
+              <svg
+                viewBox="0 0 200 240"
+                className="w-full h-full text-[#c5a059]/20 fill-shadow group-hover:text-[#c5a059]/35 group-hover:scale-105 transition-all duration-700"
+                style={{
+                  filter: "drop-shadow(0 0 20px rgba(197, 160, 89, 0.2))"
+                }}
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                {/* 9-Story Pagoda Structure Path (detailed & layered for superb aesthetic depth) */}
+                {/* Pagoda Base Grid */}
+                <path
+                  d="M 30 220 L 170 220 L 160 205 L 40 205 Z"
+                  fill="#151210"
+                  stroke="#c5a059"
+                  strokeWidth="1.2"
+                  strokeOpacity="0.4"
+                />
+                
+                {/* Tier 1 Box (Ground portal) */}
+                <rect x="52" y="170" width="96" height="35" fill="#0d0c0a" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
+                <path d="M 85 205 Q 100 175 115 205 Z" fill="#b3322a" opacity="0.6" stroke="#c5a059" strokeWidth="1" /> {/* Cavern arch */}
+                <line x1="72" y1="170" x2="72" y2="205" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
+                <line x1="128" y1="170" x2="128" y2="205" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
 
-            {/* Vertical calligraphy branding text */}
-            <div className="flex flex-col items-center select-none text-shadow">
-              {/* Star symbol */}
-              <Fingerprint className="w-7 h-7 text-[#c5a059] mb-3 opacity-80 animate-pulse" />
+                {/* Tier 2 Roof */}
+                <path
+                  d="M44,170 C44,170 48,158 64,158 L136,158 C152,158 156,170 156,170 L146,163 L54,163 Z"
+                  fill="#b3322a"
+                  stroke="#c5a059"
+                  strokeWidth="1.2"
+                  strokeOpacity="0.5"
+                />
+                
+                {/* Tier 2 Box */}
+                <rect x="62" y="132" width="76" height="26" fill="#0e0d0b" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
+                <line x1="82" y1="132" x2="82" y2="158" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.2" />
+                <line x1="118" y1="132" x2="118" y2="158" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.2" />
+
+                {/* Tier 3 Roof */}
+                <path
+                  d="M54,132 C54,132 58,122 72,122 L128,122 C142,122 146,132 146,132 L138,127 L62,127 Z"
+                  fill="#b3322a"
+                  stroke="#c5a059"
+                  strokeWidth="1.2"
+                  strokeOpacity="0.5"
+                />
+                
+                {/* Tier 3 Box */}
+                <rect x="70" y="98" width="60" height="24" fill="#110e0c" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
+                
+                {/* Tier 4 Roof */}
+                <path
+                  d="M62,98 C62,98 66,90 76,90 L124,90 C134,90 138,98 138,98 L130,94 L70,94 Z"
+                  fill="#b3322a"
+                  stroke="#c5a059"
+                  strokeWidth="1.2"
+                  strokeOpacity="0.5"
+                />
+
+                {/* Top Tower / Spire */}
+                <rect x="80" y="66" width="40" height="24" fill="#0d0c0a" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
+                <path
+                  d="M74,66 C74,66 78,58 86,58 L114,58 C122,58 126,66 126,66 Z"
+                  fill="#b3322a"
+                  stroke="#c5a059"
+                  strokeWidth="1"
+                  strokeOpacity="0.6"
+                />
+                
+                {/* Final Finial Spire on top */}
+                <line x1="100" y1="58" x2="100" y2="35" stroke="#c5a059" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="100" cy="46" r="4.5" fill="none" stroke="#c5a059" strokeWidth="1.2" />
+                <path d="M 96 38 L 104 38" stroke="#c5a059" strokeWidth="1.2" />
+              </svg>
+            </div>
+
+            {/* Typography branding text (positioned elegantly below the pagoda silhouette) */}
+            <div className="relative z-10 flex flex-col items-center select-none text-shadow-lg mt-2 w-full">
+              {/* Sacred Golden Fingerprint-Lotus Dial */}
+              <div className="flex items-center gap-1.5 mb-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Fingerprint className="w-4 h-4 text-[#c5a059] animate-pulse" />
+                <span className="text-[9px] text-[#c5a059] font-mono tracking-widest uppercase">
+                  Mogao Caverns #381
+                </span>
+              </div>
               
-              {/* Bold vertical font */}
-              <span className="text-3xl sm:text-4xl font-serif font-black tracking-[0.45em] text-[#f5f2ed] pl-2 leading-none mb-4 uppercase">
+              {/* Bold horizontal lettering */}
+              <span className="text-3xl font-serif font-black tracking-[0.35em] text-[#f5f2ed] pl-3 leading-none mb-2 select-all text-shadow transition-colors duration-300 group-hover:text-[#c5a059]">
                 莫高窟
               </span>
               
               {/* Subtitles */}
-              <span className="text-[9px] text-[#c5a059] font-mono tracking-widest uppercase">
+              <span className="text-[10px] text-[#8b7e6a] font-mono tracking-widest uppercase">
                 DUNHUANG INDICES
-              </span>
-              <span className="text-[8px] text-[#8b7e6a] font-serif tracking-widest uppercase mt-0.5">
-                Mogao Caverns #381
               </span>
             </div>
           </motion.div>
@@ -779,30 +1054,43 @@ export default function MuralSplash({
           </p>
         </div>
 
-        {/* Dynamic color swatches (Users can click them to trigger high-quality pigment explosions!) */}
+        {/* Dynamic color swatches (Users can click them to trigger high-quality pigment explosions and color fusions!) */}
         <div className="flex flex-wrap justify-center gap-2">
-          {DUNHUANG_PIGMENTS.map((c) => (
-            <div
-              key={c.name}
-              onClick={(e) => {
-                e.stopPropagation();
-                const w = window.innerWidth;
-                const h = window.innerHeight;
-                // Burst center random fireworks
-                triggerFirework(w * (0.3 + Math.random() * 0.4), h * (0.35 + Math.random() * 0.3));
-              }}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-sm border border-white/5 bg-stone-900/65 hover:bg-[#c5a059]/10 hover:border-[#c5a059]/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md"
-              title={`点击燃放《${c.name}》自然佛光烟花`}
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full inline-block shadow-inner ring-1 ring-white/10"
-                style={{ backgroundColor: c.hex }}
-              />
-              <span className="text-[11px] font-serif text-stone-300 font-medium tracking-wide">
-                {c.name}
-              </span>
-            </div>
-          ))}
+          {DUNHUANG_PIGMENTS.map((c) => {
+            const isSelected = selectedPigment.name === c.name;
+            return (
+              <div
+                key={c.name}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPigment(c);
+                  const w = window.innerWidth;
+                  const h = window.innerHeight;
+                  // Burst center random fireworks matching the pigment
+                  triggerFirework(w * (0.3 + Math.random() * 0.4), h * (0.35 + Math.random() * 0.3));
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-sm border transition-all cursor-pointer shadow-md"
+                style={{ 
+                  borderColor: isSelected ? c.hex : "rgba(255, 255, 255, 0.05)",
+                  backgroundColor: isSelected ? `${c.hex}18` : "rgba(28, 25, 23, 0.65)",
+                  boxShadow: isSelected ? `0 0 10px ${c.hex}40` : "none",
+                  transform: isSelected ? "scale(1.05)" : "scale(1)"
+                }}
+                title={`点击选定并将飞天丝带融合为《${c.name}》自然佛光色彩`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block shadow-inner ring-1 ring-white/10 text-shadow-sm"
+                  style={{ backgroundColor: c.hex }}
+                />
+                <span 
+                  className="text-[11px] font-serif font-medium tracking-wide transition-colors duration-200"
+                  style={{ color: isSelected ? "#ffffff" : "#a8a29e" }}
+                >
+                  {c.name}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

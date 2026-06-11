@@ -78,8 +78,52 @@ export default function App() {
   const [swipeLockTimer, setSwipeLockTimer] = useState<number>(0);
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false);
   const [resetKey, setResetKey] = useState<number>(0);
+  const [sidebarPortalEl, setSidebarPortalEl] = useState<HTMLDivElement | null>(null);
 
   const [showSplash, setShowSplash] = useState<boolean>(true);
+  const [preloadedImagesCount, setPreloadedImagesCount] = useState<number>(0);
+
+  // Background High-Performance Preloader for Dunhuang HD Murals
+  useEffect(() => {
+    let loadedCount = 0;
+    const urls = muralsData.map((m) => {
+      if (typeof m.imageSrc === "string") {
+        return m.imageSrc;
+      }
+      return (m.imageSrc as any)?.default || (m.imageSrc as any)?.src || "";
+    }).filter(Boolean);
+
+    if (urls.length === 0) {
+      setPreloadedImagesCount(5);
+      return;
+    }
+
+    urls.forEach((url) => {
+      // 1. Inject <link rel="preload"> dynamics at head level to warm up browser network pipe early
+      try {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "image";
+        link.href = url;
+        document.head.appendChild(link);
+      } catch (e) {
+        console.warn("Preload link failed to append:", e);
+      }
+
+      // 2. Perform concurrent raw Javascript image fetches to guarantee memory socket cache
+      const img = new Image();
+      img.onload = () => {
+        loadedCount++;
+        setPreloadedImagesCount(Math.min(urls.length, loadedCount));
+      };
+      img.onerror = () => {
+        // Increment count even on error so splash transitions don't hang if one URL fails
+        loadedCount++;
+        setPreloadedImagesCount(Math.min(urls.length, loadedCount));
+      };
+      img.src = url;
+    });
+  }, []);
 
   // Immersive Mural Library Landing Screen States (Before Interactive Canvas)
   const [showLanding, setShowLanding] = useState<boolean>(true);
@@ -258,6 +302,7 @@ export default function App() {
             onToggleAudio={() => setAudioEnabled(!audioEnabled)}
             isCameraEnabled={isCameraEnabled}
             onToggleCamera={() => setIsCameraEnabled(!isCameraEnabled)}
+            preloadedImagesCount={preloadedImagesCount}
           />
         ) : showLanding ? (
           <motion.div
@@ -713,6 +758,8 @@ export default function App() {
                       handData={activeHand}
                       onComplete={() => {
                         setProgress(100);
+                        setStoryOpen(true);
+                        setHasOpenedStory(true);
                       }}
                       resetTrigger={resetKey}
                     />
@@ -846,10 +893,7 @@ export default function App() {
               </label>
             </div>
 
-            <MediaPipeGestureTracker
-              onHandUpdate={setActiveHand}
-              isActive={isCameraEnabled}
-            />
+            <div ref={setSidebarPortalEl} className="w-full flex justify-center items-center" id="sidebar-camera-portal" />
           </div>
 
           {/* Interactive options & parameters widget */}
@@ -1140,14 +1184,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Hidden/Background gesture tracker during Splash or Landing mode to drive atmospheric gestures */}
-      {(showSplash || showLanding) && isCameraEnabled && (
-        <div className="hidden pointer-events-none w-0 h-0 overflow-hidden" style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
-          <MediaPipeGestureTracker
-            onHandUpdate={setActiveHand}
-            isActive={true}
-          />
-        </div>
+      {/* Single, permanently mounted MediaPipe Gesture Tracker to avoid double-stream contexts and WebGL crashes */}
+      {isCameraEnabled && (
+        <MediaPipeGestureTracker
+          onHandUpdate={setActiveHand}
+          isActive={isCameraEnabled}
+          portalTarget={(!showSplash && !showLanding) ? sidebarPortalEl : null}
+        />
       )}
 
       {/* Absolute Bottom Decorative Border */}

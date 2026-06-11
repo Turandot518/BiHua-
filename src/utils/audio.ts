@@ -8,11 +8,15 @@ class DunhuangAudioEngine {
   private pentatonicScale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00]; // 宫商角徵羽
   private lastPlayTime = 0;
 
-  // Background Generative Music States
+  // Background Generative Sanskrit Music States
   private bgmPlaying = false;
   private bgmTimeout: any = null;
   private droneOscs: { osc: OscillatorNode; gain: GainNode }[] = [];
+  private formantOscs: { osc: OscillatorNode; gain: GainNode }[] = [];
+  private formantLfo: OscillatorNode | null = null;
+  private formantGroupGain: GainNode | null = null;
   private lfoOsc: OscillatorNode | null = null;
+  private stepIndex = 0;
 
   // Spatial Feedback Delay Network
   private delayNode: DelayNode | null = null;
@@ -89,40 +93,108 @@ class DunhuangAudioEngine {
   }
 
   /**
-   * Starts a soothing, continuous ancient Dunhuang ambient soundscape
+   * Starts a beautiful, continuous, Sanskrit Buddist temple soundtrack
    */
   public startBGM() {
     this.initContext();
     if (!this.ctx || this.bgmPlaying) return;
 
     this.bgmPlaying = true;
+    this.stepIndex = 0;
     const now = this.ctx.currentTime;
 
     try {
-      // 1. Create deep drone hum using very soft SINE nodes to prevent buzziness.
-      // Ethereal bass anchors: D2 (73.42Hz) and A2 (110.00Hz)
-      const frequencies = [73.42, 110.00];
+      // --- 1. AESTHETIC BUDDHIST FORMANT CHOIR DRONE (梵音低吟 OMMMM) ---
+      // We detune sawtooth and triangle oscillators passing through automatic formant throat filters
+      // simulating a gathering of Buddhist monks humming deep sacred Sanskrit mantras.
+      const baseFreqs = [55.0, 110.0, 165.0]; // A1, A2, E3 root-fifth anchors
+      this.formantOscs = [];
+
+      this.formantGroupGain = this.ctx.createGain();
+      this.formantGroupGain.gain.setValueAtTime(0, now);
+      this.formantGroupGain.gain.linearRampToValueAtTime(0.040, now + 4.5);
+      this.formantGroupGain.connect(this.ctx.destination);
+
+      // Vocal Vowel Formant Bandpass sweeps back-and-forth between Aaa (720Hz) and Ooo (450Hz)
+      const vowelFilter = this.ctx.createBiquadFilter();
+      vowelFilter.type = "bandpass";
+      vowelFilter.Q.setValueAtTime(3.8, now);
+      vowelFilter.frequency.setValueAtTime(550, now);
+      vowelFilter.connect(this.formantGroupGain);
+
+      if (this.delayNode) {
+        // Send a bit of chanting drone to the vast hall echoes
+        const droneDryGain = this.ctx.createGain();
+        droneDryGain.gain.setValueAtTime(0.15, now);
+        vowelFilter.connect(droneDryGain);
+        droneDryGain.connect(this.delayNode);
+      }
+
+      // Sweep the filter slowly using an LFO for natural organic chanting breathing
+      this.formantLfo = this.ctx.createOscillator();
+      this.formantLfo.frequency.setValueAtTime(0.08, now); // Slow 12.5 seconds sweeping cycles
+      const lfoGainNode = this.ctx.createGain();
+      lfoGainNode.gain.setValueAtTime(140, now); // scale frequency center by +/- 140Hz
+
+      this.formantLfo.connect(lfoGainNode);
+      lfoGainNode.connect(vowelFilter.frequency);
+      this.formantLfo.start(now);
+
+      baseFreqs.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Layer saw/triangle for rich buzzy reedy vocal folds
+        osc.type = idx === 1 ? "sawtooth" : "triangle";
+        // Fine micro detune (around ±0.6Hz) creates chorus-like lushness
+        osc.frequency.setValueAtTime(freq + (Math.random() - 0.5) * 0.7, now);
+
+        // Vocal vibrato cycle (Buddhist monk chants naturally weave tremolo pitch vibrato)
+        const vibe = this.ctx.createOscillator();
+        vibe.frequency.setValueAtTime(4.8 + idx * 0.4, now);
+        const vibeGain = this.ctx.createGain();
+        vibeGain.gain.setValueAtTime(0.35, now);
+        vibe.connect(vibeGain);
+        vibeGain.connect(osc.frequency);
+        vibe.start(now);
+
+        const v = idx === 0 ? 0.35 : idx === 1 ? 0.22 : 0.08;
+        gain.gain.setValueAtTime(v, now);
+
+        // Severe low-pass filter takes high-frequency saw harsh buzz, leaving cozy chest hums
+        const chantFilter = this.ctx.createBiquadFilter();
+        chantFilter.type = "lowpass";
+        chantFilter.frequency.setValueAtTime(420, now);
+
+        osc.connect(chantFilter);
+        chantFilter.connect(gain);
+        gain.connect(vowelFilter);
+
+        osc.start(now);
+        this.formantOscs.push({ osc, gain });
+      });
+
+      // --- 2. SUB-BASS DRONE FOR STEADY ZEN VIBRATION ---
+      const subFrequencies = [73.42, 110.00];
       this.droneOscs = [];
 
-      // Create a master drone fader that lets the hum evolve in a barely audible way
       const masterDroneGain = this.ctx.createGain();
       masterDroneGain.gain.setValueAtTime(0, now);
-      // Fades in beautifully over 4 seconds
       masterDroneGain.gain.linearRampToValueAtTime(0.015, now + 4.0);
       masterDroneGain.connect(this.ctx.destination);
 
-      frequencies.forEach((freq, idx) => {
+      subFrequencies.forEach((freq, idx) => {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const filter = this.ctx.createBiquadFilter();
         const gain = this.ctx.createGain();
 
-        // 100% pure Sine waves give a silky warm glass drone without aggressive buzz
         osc.type = "sine";
         osc.frequency.setValueAtTime(freq, now);
 
         filter.type = "lowpass";
-        filter.frequency.setValueAtTime(100, now); // strictly limit to sub-bass warm hum
+        filter.frequency.setValueAtTime(100, now);
 
         const baseVolume = idx === 0 ? 0.3 : 0.15;
         gain.gain.setValueAtTime(baseVolume, now);
@@ -135,60 +207,91 @@ class DunhuangAudioEngine {
         this.droneOscs.push({ osc, gain });
       });
 
-      // Ultra-slow breathing LFO (0.05Hz = 20-second swell cycles) to make it feel organic
-      const lfo = this.ctx.createOscillator();
-      lfo.frequency.setValueAtTime(0.05, now);
-
+      this.lfoOsc = this.ctx.createOscillator();
+      this.lfoOsc.frequency.setValueAtTime(0.05, now);
       const lfoGain = this.ctx.createGain();
       lfoGain.gain.setValueAtTime(0.008, now);
-
-      lfo.connect(lfoGain);
+      this.lfoOsc.connect(lfoGain);
       lfoGain.connect(masterDroneGain.gain);
-      lfo.start(now);
-      this.lfoOsc = lfo;
+      this.lfoOsc.start(now);
 
-      // 2. Play beautiful, generative soundscapes at wide, unhurried intervals
-      let seqIndex = 0;
-      const playMelodyTicker = () => {
+      // --- 3. THE SANSKRIT ZEN STEP SEQUENCER LOOP (400ms per step) ---
+      // This plays an emotional, ancient Buddhist melody (Pentatonic, reminiscent of temple hymns)
+      // coupled with Wooden Fish clicks on even beats, Guzheng runs, and Singing Bowls on downbeats!
+      const playSequencerStep = () => {
         if (!this.bgmPlaying || !this.ctx) return;
 
-        // Pentatonic scale note frequencies
-        const bgmScale = [
-          146.83, 164.81, 196.00, 220.00, 261.63,
-          293.66, 329.63, 392.00, 440.00, 523.25,
-          587.33, 659.25, 783.99, 880.00
+        const step = this.stepIndex % 32;
+
+        // Traditional Sanskrit Buddhist Pentatonic flute theme pitches
+        // 0 denotes rest beats (meditative spaces)
+        const melody = [
+          440.00, 0,      440.00, 523.25, 587.33, 0,      587.33, 659.25, // Step 0-7: A4, A4, C5, D5, D5, E5
+          783.99, 0,      659.25, 0,      587.33, 523.25, 440.00, 0,      // Step 8-15: G5, E5, D5, C5, A4
+          587.33, 0,      587.33, 659.25, 783.99, 0,      880.00, 0,      // Step 16-23: D5, D5, E5, G5, A5
+          783.99, 659.25, 587.33, 523.25, 440.00, 0,      0,      0       // Step 24-31: G5, E5, D5, C5, A4
         ];
 
-        const rollVal = Math.random();
-
-        if (rollVal < 0.45) {
-          // Play a beautiful, soft, organic Guzheng-style string pluck with spacey echo
-          const freqIndex = Math.floor(Math.random() * bgmScale.length);
-          const freq = bgmScale[freqIndex];
-          this.triggerPluckNote(freq, 0.035, 1.8);
-        } else if (rollVal < 0.70) {
-          // Instead of harsh whistles, play an ethereal, calming Tibetan Singing Bowl resonance
-          const bowlNotes = [220.00, 261.63, 293.66, 329.63, 440.00];
-          const freq = bowlNotes[Math.floor(Math.random() * bowlNotes.length)];
-          this.triggerSingingBowl(freq, 0.02, 4.5);
-        } else if (rollVal < 0.88) {
-          // Play a handful of soft, distant crystal wind chimes moving in the breeze
-          this.triggerGentleChimes();
+        // A. Trigger Zen Bamboo Flute Melody
+        const currentNote = melody[step];
+        if (currentNote > 0) {
+          // Play woodwind sound with breathing space
+          this.triggerZenFlute(currentNote, 0.045, 1.3);
         }
 
-        seqIndex++;
-        if (seqIndex % 8 === 0) {
-          // A majestic, very faint temple gong/bell in the distance
+        // B. Steady Wooden Fish heartbeat ticks on every other step (0, 2, 4...)
+        if (step % 2 === 0) {
+          // Play soft, woodblock heartbeat to establish the Sanskrit rhythm pace
+          this.triggerWoodenFish(0.024);
+        }
+
+        // C. Trigger Guzheng backup rolling arpeggios on downbeats
+        if (step === 0) {
+          // Am rolling accompaniment notes
+          this.triggerPluckNote(220.00, 0.04, 1.2);
+          setTimeout(() => this.triggerPluckNote(329.63, 0.035, 1.2), 60);
+          setTimeout(() => this.triggerPluckNote(440.00, 0.03, 1.2), 120);
+          
+          // Singing bowl resonance washes over downbeat
+          this.triggerSingingBowl(220.00, 0.015, 6.0);
+        } else if (step === 8) {
+          // C chord backup
+          this.triggerPluckNote(261.63, 0.04, 1.2);
+          setTimeout(() => this.triggerPluckNote(392.00, 0.035, 1.2), 60);
+          setTimeout(() => this.triggerPluckNote(523.25, 0.03, 1.2), 120);
+        } else if (step === 16) {
+          // D chord backup
+          this.triggerPluckNote(293.66, 0.04, 1.2);
+          setTimeout(() => this.triggerPluckNote(440.00, 0.035, 1.2), 60);
+          setTimeout(() => this.triggerPluckNote(587.33, 0.03, 1.2), 120);
+          
+          this.triggerSingingBowl(329.63, 0.015, 6.0);
+        } else if (step === 24) {
+          // G chord backup
+          this.triggerPluckNote(196.00, 0.04, 1.2);
+          setTimeout(() => this.triggerPluckNote(293.66, 0.035, 1.2), 60);
+          setTimeout(() => this.triggerPluckNote(392.00, 0.03, 1.2), 120);
+        }
+
+        // D. High sweet silver sky-scatter wind chimes shimmering softly in space
+        if (step === 12 || step === 28) {
+          if (Math.random() > 0.3) {
+            this.triggerGentleChimes();
+          }
+        }
+
+        // E. Faint majestic temple bell deep in the horizon
+        if (this.stepIndex % 64 === 0) {
           this.triggerFaintTempleBell();
         }
 
-        // Spacious delays between events (3.5s to 7s) to ensure a slow, meditative pace
-        const nextDelay = 3500 + Math.random() * 3500;
-        this.bgmTimeout = setTimeout(playMelodyTicker, nextDelay);
+        this.stepIndex++;
+        // Keep steps beautifully structured at 400ms intervals (150 BPM eighth notes)
+        this.bgmTimeout = setTimeout(playSequencerStep, 400);
       };
 
-      // Delay start of first sounds slightly to let user settle
-      this.bgmTimeout = setTimeout(playMelodyTicker, 2000);
+      // Gentle warmup delay before playing the Sanskrit melody
+      this.bgmTimeout = setTimeout(playSequencerStep, 1500);
 
     } catch (err) {
       console.warn("Dunhuang soundscape generator failed:", err);
@@ -221,10 +324,120 @@ class DunhuangAudioEngine {
     });
     this.droneOscs = [];
 
+    // Fade out vocal formant chants
+    this.formantOscs.forEach(({ osc, gain }) => {
+      try {
+        if (this.ctx && gain) {
+          gain.gain.cancelScheduledValues(now);
+          gain.gain.setValueAtTime(gain.gain.value, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+          setTimeout(() => {
+            try { osc.stop(); } catch (_) {}
+          }, 1400);
+        } else {
+          osc.stop();
+        }
+      } catch (_) {}
+    });
+    this.formantOscs = [];
+
+    if (this.formantLfo) {
+      try { this.formantLfo.stop(); } catch (_) {}
+      this.formantLfo = null;
+    }
+
     if (this.lfoOsc) {
       try { this.lfoOsc.stop(); } catch (_) {}
       this.lfoOsc = null;
     }
+  }
+
+  /**
+   * Beautiful, breathing bamboo flute sound (vibrato triangle wave with soft lowpass sweep)
+   */
+  private triggerZenFlute(freq: number, volume: number = 0.05, duration: number = 1.3) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gainNode = this.ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, now);
+
+    // Warm, authentic air tremolo (bamboo flutes vibrato around 5.5 - 6.0 Hz)
+    const vibrato = this.ctx.createOscillator();
+    vibrato.frequency.setValueAtTime(5.8, now);
+    const vibratoGain = this.ctx.createGain();
+    vibratoGain.gain.setValueAtTime(0, now);
+    vibratoGain.gain.linearRampToValueAtTime(freq * 0.008, now + 0.3); // swell vibrato depth
+    vibrato.connect(vibratoGain);
+    vibratoGain.connect(osc.frequency);
+    vibrato.start(now);
+
+    filter.type = "lowpass";
+    // Soft flute breathing filter frequency
+    filter.frequency.setValueAtTime(freq * 1.6, now);
+    filter.frequency.exponentialRampToValueAtTime(freq * 1.1, now + duration);
+
+    gainNode.gain.setValueAtTime(0, now);
+    // Smooth soft breath-in attack
+    gainNode.gain.linearRampToValueAtTime(volume, now + 0.12);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    if (this.delayNode) {
+      gainNode.connect(this.delayNode);
+    }
+
+    osc.start(now);
+    osc.stop(now + duration + 0.1);
+    vibrato.stop(now + duration + 0.1);
+  }
+
+  /**
+   * Authentic wooden fish (木鱼) block drum strike.
+   * Tight high-Q bandpass sound with tiny woody chest release click.
+   */
+  private triggerWoodenFish(volume: number = 0.024) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(540, now);
+    // Pitch drops slightly immediately for a realistic hollow wood shell sound
+    osc.frequency.exponentialRampToValueAtTime(430, now + 0.06);
+
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(480, now);
+    filter.Q.setValueAtTime(14, now);
+
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(volume, now + 0.003); // Instant percussion transients
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    if (this.delayNode) {
+      // Subtle spacey delayed echoes
+      const woodEchoGain = this.ctx.createGain();
+      woodEchoGain.gain.setValueAtTime(0.08, now);
+      gainNode.connect(woodEchoGain);
+      woodEchoGain.connect(this.delayNode);
+    }
+
+    osc.start(now);
+    osc.stop(now + 0.1);
   }
 
   /**

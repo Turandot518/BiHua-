@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { HandData } from "../types";
 import { Camera, Video, ShieldAlert, CheckCircle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -11,13 +12,15 @@ import { motion, AnimatePresence } from "motion/react";
 interface MediaPipeGestureTrackerProps {
   onHandUpdate: (hand: HandData | null) => void;
   isActive: boolean;
+  portalTarget?: HTMLElement | null;
 }
 
 let sharedHandsInstance: any = null;
 
 export default function MediaPipeGestureTracker({
   onHandUpdate,
-  isActive
+  isActive,
+  portalTarget = null
 }: MediaPipeGestureTrackerProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -564,7 +567,7 @@ export default function MediaPipeGestureTracker({
 
   const isDeviceInUse = permissionError?.includes("Device in use");
 
-  return (
+  const content = (
     <div className="flex flex-col items-center bg-[#1a1815] p-5 rounded-xs border border-white/5 backdrop-blur-md shadow-lg w-full">
       {/* Visual Status Indicator */}
       <div className="flex items-center gap-2 mb-3 select-none">
@@ -722,6 +725,16 @@ export default function MediaPipeGestureTracker({
           </div>
         )}
       </div>
+    </div>
+  );
+
+  if (portalTarget) {
+    return createPortal(content, portalTarget);
+  }
+
+  return (
+    <div className="hidden pointer-events-none w-0 h-0 overflow-hidden" style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
+      {content}
     </div>
   );
 }

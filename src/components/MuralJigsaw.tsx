@@ -196,10 +196,8 @@ export default function MuralJigsaw({
   // Synchronous Web Camera hand tracking loop mapping coordinates onto our Jigsaw workspace
   useEffect(() => {
     if (!handData || isCompleted) {
-      // Clear AI cursor
-      if (cursorPos?.isAI) {
-        setCursorPos(null);
-      }
+      // Clear AI cursor safely without stale closure reads or re-render trigger loops
+      setCursorPos((prev) => (prev?.isAI ? null : prev));
       // Safely release and snap current piece if hand leaves
       if (cameraGrabbedIdRef.current !== null) {
         checkPieceSnap(cameraGrabbedIdRef.current);
