@@ -13,6 +13,7 @@ import MuralJigsaw from "./components/MuralJigsaw";
 import StoryPopup from "./components/StoryPopup";
 import MuralLibrary from "./components/MuralLibrary";
 import MuralSplash from "./components/MuralSplash";
+import MuralPhotoBooth from "./components/MuralPhotoBooth";
 import CanvasErrorBoundary from "./components/CanvasErrorBoundary";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -73,6 +74,7 @@ export default function App() {
   // Progress and story modals
   const [progress, setProgress] = useState<number>(0);
   const [storyOpen, setStoryOpen] = useState<boolean>(false);
+  const [photoBoothOpen, setPhotoBoothOpen] = useState<boolean>(false);
   const [hasOpenedStory, setHasOpenedStory] = useState<boolean>(false);
   const [libraryOpen, setLibraryOpen] = useState<boolean>(false);
   const [swipeLockTimer, setSwipeLockTimer] = useState<number>(0);
@@ -349,12 +351,6 @@ export default function App() {
                 <p className="text-[#8b7e6a] text-xs mt-3 text-center md:text-left leading-relaxed max-w-2xl font-serif">
                   精选莫高窟历代传世名作精品与其历史典故。在此抚拨民乐、品鉴骨法笔迹、赏析天然重彩墨砚，挑选心仪卷轴一键启封，步入交互复原空间。
                 </p>
-                <div className="mt-4.5 text-[11px] font-sans tracking-wide text-center md:text-left flex items-center justify-center md:justify-start gap-1.5 select-none animate-ribbon-wave">
-                  <span className="text-stone-500">Designed by:</span>
-                  <span className="text-[#c5a059] font-serif font-semibold tracking-widest">
-                    Turandot
-                  </span>
-                </div>
               </div>
 
               {/* Decorative silk riband banner display */}
@@ -903,13 +899,27 @@ export default function App() {
 
             {/* If mural completed, show explore results */}
             {progress >= 80 ? (
-              <button
-                onClick={() => setStoryOpen(true)}
-                className="px-5 py-2.5 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-bold text-xs rounded-xs flex items-center gap-2 transition-all cursor-pointer tracking-wider"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>开启修复日志 · 《{currentMural.title}》</span>
-              </button>
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  onClick={() => setStoryOpen(true)}
+                  className="px-4.5 py-2.5 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-bold text-xs rounded-xs flex items-center gap-1.5 transition-all cursor-pointer tracking-wider"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>开启修复日志 · 《{currentMural.title}》</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPhotoBoothOpen(true);
+                    if (audioEnabled) audio.playChimes();
+                  }}
+                  className="px-4.5 py-2.5 bg-[#b3322a] hover:bg-[#b3322a]/95 text-white font-serif font-bold text-xs rounded-xs flex items-center gap-1.5 transition-all cursor-pointer tracking-wider shadow-[0_4px_12px_rgba(179,50,42,0.3)]"
+                  title="与本幅修复完成后的壁画进行合影，并下载精美信片"
+                >
+                  <Camera className="w-3.5 h-3.5 animate-bounce" />
+                  <span>与壁画合影</span>
+                </button>
+              </div>
             ) : (
               <div className="text-[11px] text-[#8b7e6a] font-sans flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
@@ -1117,6 +1127,21 @@ export default function App() {
             isLastMural={currentMuralIndex === muralsData.length - 1}
             swipeLockTimer={swipeLockTimer}
             onReturnToLibrary={handleReturnToLibraryFromStory}
+            onOpenPhotoBooth={() => {
+              setStoryOpen(false);
+              setPhotoBoothOpen(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Commemorative photo booth (莫高飞天合影镜) page overlay */}
+      <AnimatePresence>
+        {photoBoothOpen && (
+          <MuralPhotoBooth
+            mural={currentMural}
+            isOpen={photoBoothOpen}
+            onClose={() => setPhotoBoothOpen(false)}
           />
         )}
       </AnimatePresence>
@@ -1252,11 +1277,10 @@ export default function App() {
         {/* Decorative dynamic top divider line */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/30 to-transparent"></div>
         
-        {/* Highly prominent and elegant Designer signature display */}
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="text-[11px] text-stone-400 font-sans tracking-widest uppercase">DESIGNED BY:</span>
-          <span className="text-[#c5a059] font-serif font-semibold tracking-[0.25em] text-sm hover:scale-105 transition-transform duration-300">
-            Turandot
+        {/* Digital preservation brand title */}
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="text-[11px] text-[#c5a059]/90 font-serif tracking-[0.26em] text-xs">
+            莫高藏经 · 千年华壁数字化复原
           </span>
         </div>
 

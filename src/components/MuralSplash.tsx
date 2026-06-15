@@ -1019,16 +1019,8 @@ export default function MuralSplash({
             </button>
           </motion.div>
 
-          {/* Designed by Turandot signature badge */}
-          <div className="flex items-center gap-1.5 mt-4 sm:mt-5 hover:opacity-100 transition-opacity select-none font-serif text-[10px] sm:text-xs text-[#8b7e6a]/70 tracking-wider">
-            <span className="opacity-60 text-[10px] sm:text-[11px]">Designed by:</span>
-            <span className="text-[#c5a059] font-bold tracking-[0.18em]">
-              Turandot
-            </span>
-          </div>
-
           {/* Visual subtext footer */}
-          <div className="text-[#8b7e6a]/50 text-[9px] sm:text-[10px] font-serif tracking-widest mt-1.5 sm:mt-2 leading-normal">
+          <div className="text-[#8b7e6a]/55 text-[10px] sm:text-[11px] font-serif tracking-widest mt-6 leading-normal select-none">
             扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
           </div>
         </div>
