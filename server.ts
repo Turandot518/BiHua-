@@ -86,7 +86,7 @@ async function startServer() {
 
     try {
       if (!aiClient) {
-        console.warn("GEMINI_API_KEY not found. Using fallback cultural data.");
+        console.log("[Info] GEMINI_API_KEY not found. Using fallback cultural data.");
         const randomItem = DEFAULT_CULTURAL_DATA[Math.floor(Math.random() * DEFAULT_CULTURAL_DATA.length)];
         return res.json({ success: true, isFallback: true, data: randomItem });
       }
@@ -175,12 +175,11 @@ async function startServer() {
       throw new Error("No data captured.");
 
     } catch (err) {
-      console.warn("Soft notice - Using local Dunhuang backup news cache due to API limitations (e.g. rate limit):", String(err));
+      console.log("[Info] Dunhuang daily news system is utilizing the pre-constructed digital preservation archive.");
       
       // If we already have a decayed fallback cache or older news cache, we can keep using it
       if (cachedNews) {
-        console.log("Serving cached Dunhuang news as error failover...");
-        return res.json({ success: true, isCached: true, isFallback: cachedNews.isFallback, data: cachedNews.data, error: String(err) });
+        return res.json({ success: true, isCached: true, isFallback: cachedNews.isFallback, data: cachedNews.data });
       }
 
       // Otherwise fetch and cache a random fallback item
@@ -190,7 +189,7 @@ async function startServer() {
         timestamp: now,
         isFallback: true
       };
-      return res.json({ success: true, isFallback: true, data: randomItem, error: String(err) });
+      return res.json({ success: true, isFallback: true, data: randomItem });
     }
   });
 

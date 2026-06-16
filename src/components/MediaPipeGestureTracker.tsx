@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { HandData } from "../types";
-import { Camera, Video, ShieldAlert, CheckCircle, Sparkles } from "lucide-react";
+import { Camera, Video, ShieldAlert, CheckCircle, Sparkles, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface MediaPipeGestureTrackerProps {
@@ -17,7 +17,46 @@ interface MediaPipeGestureTrackerProps {
 
 let sharedHandsInstance: any = null;
 
-export default function MediaPipeGestureTracker({
+// Error Boundary to gracefully catch any MediaPipe or WebGL initialization failures
+class GestureTrackerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  public state = {
+    hasError: false,
+    error: null as Error | null,
+  };
+
+  public static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[MediaPipe Cust ErrorBoundary] Caught model startup exception:", error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center bg-[#1a1815] p-5 rounded-xs border border-red-900/40 backdrop-blur-md shadow-lg w-full text-center select-none font-serif">
+          <div className="w-10 h-10 rounded-full bg-red-950/20 border border-red-800/30 flex items-center justify-center mb-3">
+            <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />
+          </div>
+          <span className="text-red-400 text-xs font-semibold tracking-wider block mb-1">手势交互计算加载受限</span>
+          <p className="text-[10px] text-[#8b7e6a] leading-relaxed max-w-[210px] my-2">
+            AI 摄像头手势交互加载遇到异常（可能是设备 CPU 负载过高或 WebGL 绘图上下文冲突）。您可以继续使用鼠标滑动/控制。
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="mt-1 px-3 py-1 bg-red-900/20 hover:bg-red-900/30 border border-red-800/40 text-red-400 text-[10px] font-bold rounded-xs transition-colors cursor-pointer shadow-md shadow-black"
+          >
+            再次尝试加载
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MediaPipeGestureTrackerInner({
   onHandUpdate,
   isActive,
   portalTarget = null
@@ -26,6 +65,8 @@ export default function MediaPipeGestureTracker({
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [running, setRunning] = useState<boolean>(false);
   const [retryTrigger, setRetryTrigger] = useState<number>(0);
+  const [cameraTimeout, setCameraTimeout] = useState<boolean>(false);
+  const [bootTimeMs, setBootTimeMs] = useState<number | null>(null);
 
   // Hand visual coordinates and trigger overlay states
   const [handInfo, setHandInfo] = useState<{ x: number; y: number; isOpen: boolean } | null>(null);
@@ -53,6 +94,7 @@ export default function MediaPipeGestureTracker({
   const lastCallbackYRef = useRef<number>(0);
   const lastCallbackOpenRef = useRef<boolean>(false);
   const hasSentHandPresenceRef = useRef<boolean>(false);
+  const initStartTimeRef = useRef<number>(0);
 
   const triggerSwipeAnimation = () => {
     setSwipeTriggered(true);
@@ -77,6 +119,7 @@ export default function MediaPipeGestureTracker({
     let checkLoaded: any = null;
     let timeoutId: any = null;
     const timersToClear: any[] = [];
+    const scriptStartTime = performance.now();
 
     const findLoadedCdn = () => {
       const scripts = Array.from(document.getElementsByTagName("script"));
@@ -96,7 +139,7 @@ export default function MediaPipeGestureTracker({
       const activeCdn = findLoadedCdn();
       if (activeCdn) {
         cdnRootRef.current = activeCdn;
-        console.log(`MediaPipe Hands is already loaded. Setting cdnRootRef to active: ${activeCdn}`);
+        console.log(`[MediaPipe Perf] Hands already loaded. Active: ${activeCdn}`);
       }
       setLoading(false);
       return;
@@ -119,7 +162,6 @@ export default function MediaPipeGestureTracker({
         return;
       }
 
-      // If there's an active script already, we clean it up before switching to next fallback to avoid clashing
       if (activeScript) {
         try {
           document.head.removeChild(activeScript);
@@ -128,7 +170,7 @@ export default function MediaPipeGestureTracker({
       }
 
       const cdnUrl = cdns[index];
-      console.log(`Initiating load of MediaPipe Hands from CDN [${index}]: ${cdnUrl}`);
+      console.log(`[MediaPipe Perf] Loading CDN [${index}]: ${cdnUrl}`);
 
       const script = document.createElement("script");
       script.src = `${cdnUrl}hands.js`;
@@ -140,23 +182,23 @@ export default function MediaPipeGestureTracker({
       script.onload = () => {
         if (active && (window as any).Hands) {
           cdnRootRef.current = cdnUrl;
-          console.log(`Successfully loaded MediaPipe Hands from CDN [${index}]: ${cdnUrl}`);
+          const duration = performance.now() - scriptStartTime;
+          console.log(`[MediaPipe Perf] Successfully loaded script from CDN [${index}] in ${duration.toFixed(2)}ms: ${cdnUrl}`);
         }
       };
 
       script.onerror = () => {
         if (!active || (window as any).Hands) return;
-        console.warn(`CDN [${index}] failed to load: ${cdnUrl}. Falling back to next...`);
+        console.warn(`CDN [${index}] failed to load: ${cdnUrl}. Falling back...`);
         tryLoadCdn(index + 1);
       };
 
       activeScript = script;
       document.head.appendChild(script);
 
-      // Threshold: if this CDN does not load in 3.5 seconds, try sequential fallback after cleaning up the active script
       const checkTimer = setTimeout(() => {
         if (active && !(window as any).Hands) {
-          console.log(`CDN [${index}] load threshold reached without success. Moving to next CDN fallbacks...`);
+          console.log(`CDN [${index}] loading threshold reached (3.5s). Falling back to next...`);
           tryLoadCdn(index + 1);
         }
       }, 3500);
@@ -164,10 +206,8 @@ export default function MediaPipeGestureTracker({
       timersToClear.push(checkTimer);
     };
 
-    // Kick off with the fast CDN first
     tryLoadCdn(0);
 
-    // Safety timeout: If after 35 seconds we still don't have window.Hands, stop spinner and show timeout warning
     timeoutId = setTimeout(() => {
       if (active) {
         clearInterval(checkLoaded);
@@ -204,6 +244,17 @@ export default function MediaPipeGestureTracker({
     }
 
     let isDestroyed = false;
+    let timeoutTimer: any = null;
+    initStartTimeRef.current = performance.now();
+
+    // Setup 3-second timeout timer for camera initialization
+    setCameraTimeout(false);
+    timeoutTimer = setTimeout(() => {
+      if (!isDestroyed && !running) {
+        console.warn("[MediaPipe Perf] Camera initialization exceeded 3 seconds (latency trigger). Displaying retry button.");
+        setCameraTimeout(true);
+      }
+    }, 3000);
 
     async function startMediaPipe() {
       if (pendingBootRef.current) {
@@ -213,6 +264,7 @@ export default function MediaPipeGestureTracker({
       }
 
       if (isDestroyed || !isActive) {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         return;
       }
 
@@ -224,7 +276,15 @@ export default function MediaPipeGestureTracker({
       try {
         setPermissionError(null);
 
+        // Defer 450ms for initial page rendering transition to prevent thread locking/black freezing on mount
+        await new Promise(resolve => setTimeout(resolve, 450));
+        if (isDestroyed || !isActive) {
+          if (timeoutTimer) clearTimeout(timeoutTimer);
+          return;
+        }
+
         // 1. Initialise and reuse MediaPipe Hands Instance
+        const modelSetupStart = performance.now();
         let hands = sharedHandsInstance;
         if (!hands) {
           const HandsClass = (window as any).Hands;
@@ -232,7 +292,6 @@ export default function MediaPipeGestureTracker({
             throw new Error("当前环境暂时无法加载 AI 摄像头计算库。请刷新页面或重试以进行隔空手势互动！");
           }
 
-          // Safety bypass: prevent Emscripten from throwing due to legacy global arguments detection
           if (typeof window !== "undefined") {
             try {
               (window as any).arguments = undefined;
@@ -245,16 +304,17 @@ export default function MediaPipeGestureTracker({
 
           hands.setOptions({
             maxNumHands: 1,
-            modelComplexity: 0, // 0 is the Lite model, which speeds up predictions dramatically and reduces latency
-            minDetectionConfidence: 0.5, // slightly more sensitive to detect hand faster
-            minTrackingConfidence: 0.5
+            modelComplexity: 0, 
+            minDetectionConfidence: 0.35, 
+            minTrackingConfidence: 0.35
           });
 
           sharedHandsInstance = hands;
         }
 
-        // ALWAYS update the onResults callback pointer on the shared global instance
-        // to dynamically target the newly mounted component's active callback ref
+        const modelSetupDuration = performance.now() - modelSetupStart;
+        console.log(`[MediaPipe Perf] Model setup/reuse resolved in ${modelSetupDuration.toFixed(2)}ms`);
+
         hands.onResults((results: any) => {
           if (onResultsRef.current) {
             onResultsRef.current(results);
@@ -283,15 +343,12 @@ export default function MediaPipeGestureTracker({
               const pt17 = landmarks[17];
 
               if (pt8 && pt6 && pt12 && pt10 && pt16 && pt14 && pt20 && pt18 && pt9 && pt4 && pt5 && pt17) {
-                // Calculate open hand state: index, middle, ring, pinky tips are higher than joint bases
-                // MediaPipe context coord y goes from 0 (top) to 1 (bottom). So smaller y means higher up.
                 let extendedFingers = 0;
-                if (typeof pt8.y === "number" && typeof pt6.y === "number" && pt8.y < pt6.y) extendedFingers++;   // Index finger
-                if (typeof pt12.y === "number" && typeof pt10.y === "number" && pt12.y < pt10.y) extendedFingers++; // Middle finger
-                if (typeof pt16.y === "number" && typeof pt14.y === "number" && pt16.y < pt14.y) extendedFingers++; // Ring finger
-                if (typeof pt20.y === "number" && typeof pt18.y === "number" && pt20.y < pt18.y) extendedFingers++; // Pinky finger
+                if (typeof pt8.y === "number" && typeof pt6.y === "number" && pt8.y < pt6.y) extendedFingers++;
+                if (typeof pt12.y === "number" && typeof pt10.y === "number" && pt12.y < pt10.y) extendedFingers++;
+                if (typeof pt16.y === "number" && typeof pt14.y === "number" && pt16.y < pt14.y) extendedFingers++;
+                if (typeof pt20.y === "number" && typeof pt18.y === "number" && pt20.y < pt18.y) extendedFingers++;
 
-                // Normalize distances using the palm width as an auto-calibrating scale reference
                 let palmScale = 0.12;
                 if (typeof pt5.x === "number" && typeof pt17.x === "number" && typeof pt5.y === "number" && typeof pt17.y === "number") {
                   const dx = pt5.x - pt17.x;
@@ -299,29 +356,22 @@ export default function MediaPipeGestureTracker({
                   palmScale = Math.max(0.04, Math.sqrt(dx * dx + dy * dy));
                 }
 
-                // Check distance between thumb tip (pt4) and index finger tip (pt8)
                 let isPinching = false;
                 if (typeof pt4.x === "number" && typeof pt8.x === "number" && typeof pt4.y === "number" && typeof pt8.y === "number") {
                   const dx = pt4.x - pt8.x;
                   const dy = pt4.y - pt8.y;
                   const tipDistance = Math.sqrt(dx * dx + dy * dy);
-                  // If the thumb tip is close to the index tip relative to the palm scale, it is a pinch!
                   if (tipDistance < palmScale * 0.52) {
                     isPinching = true;
                   }
                 }
 
-                // Open hand state check: must have enough extended fingers and must NOT be pinching
                 const isOpen = extendedFingers >= 2 && !isPinching;
 
-                // Hand key landmark points are usually represented by index base 9 (middle key joint) or 0 (wrist)
-                // Mirror horizontal coordinate because webcam stream is usually mirrored for natural feedback
                 const rawX = typeof pt9.x === "number" ? pt9.x : 0.5;
-                const mirroredX = 1 - rawX; // Convert left/right
+                const mirroredX = 1 - rawX;
                 const mappedY = typeof pt9.y === "number" ? pt9.y : 0.5;
 
-                // 2. Exponential Moving Average to eliminate camera coordinate jitter/noise
-                // Alpha of 0.45 balances responsiveness (low input lag) with extremely smooth dampening
                 const alpha = 0.45;
                 let currentSmoothedX = mirroredX;
                 let currentSmoothedY = mappedY;
@@ -336,18 +386,15 @@ export default function MediaPipeGestureTracker({
                   currentSmoothedY = smoothedYRef.current;
                 }
 
-                // Process swipe gesture (Right to Left displacement using smoothed coordinates)
                 const now = Date.now();
                 xHistoryRef.current.push({ x: currentSmoothedX, time: now });
 
-                // Maintain last 450ms of tracking coordinates (extremely fast response window)
                 xHistoryRef.current = xHistoryRef.current.filter(item => now - item.time < 450);
 
                 let isSwipeLeft = false;
                 if (xHistoryRef.current.length > 2) {
                   const newest = xHistoryRef.current[xHistoryRef.current.length - 1];
                   
-                  // Find the rightmost position (max x) in the recent history to capture the start of a swipe
                   let maxX = newest.x;
                   let maxTime = newest.time;
                   for (const item of xHistoryRef.current) {
@@ -358,41 +405,30 @@ export default function MediaPipeGestureTracker({
                   }
 
                   const timeDelta = newest.time - maxTime;
-                  const xDelta = newest.x - maxX; // negative value representing right-to-left swipe
+                  const xDelta = newest.x - maxX;
 
-                  // HIGHLY SENSITIVE & INSTANT RESPONSE:
-                  // If hand moved leftwards by at least 15% of the screen width within 80ms - 450ms
                   if (xDelta < -0.15 && timeDelta > 80 && timeDelta < 450) {
                     isSwipeLeft = true;
-                    xHistoryRef.current = []; // Reset history to avoid double-firing
+                    xHistoryRef.current = [];
                     triggerSwipeAnimation();
                   }
                 }
 
-                // Save hand coordinates for rendering real-time divine particles and responsive tracking shapes
                 setHandInfo({
                   x: currentSmoothedX,
                   y: currentSmoothedY,
                   isOpen
                 });
 
-                // Dispatch throttled hand update to parent components
                 const timeElapsed = now - lastCallbackTimeRef.current;
                 
-                // Conditions to bypass throttling and dispatch immediately:
-                // - First hand presence registration
-                // - Hand open/pinch state changed (isOpen / grab toggle)
-                // - Swipe gesture triggered
                 const firstPresence = !hasSentHandPresenceRef.current;
                 const stateChanged = lastCallbackOpenRef.current !== isOpen;
                 
-                // Calculate coordinate displacement delta to ignore micro-jitters
                 const dx = currentSmoothedX - lastCallbackXRef.current;
                 const dy = currentSmoothedY - lastCallbackYRef.current;
                 const distSq = dx * dx + dy * dy;
                 
-                // Throttle threshold: 20ms (max 50 updates per second)
-                // Eagerly dispatch if spacing state changed, swipe occurred, or distance moved is meaningful
                 if (isSwipeLeft || firstPresence || stateChanged || timeElapsed >= 20 || distSq > 0.00018) {
                   lastCallbackTimeRef.current = now;
                   lastCallbackXRef.current = currentSmoothedX;
@@ -417,7 +453,6 @@ export default function MediaPipeGestureTracker({
               handleHandLostChange();
             }
           } else {
-            // No hand detected
             setHandInfo(null);
             handleHandLostChange();
           }
@@ -425,11 +460,12 @@ export default function MediaPipeGestureTracker({
 
         handsInstanceRef.current = hands;
 
-        // 2. Initialise and run camera via standard MediaDevices stream and frame loop
+        // 2. Initialise camera
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error("浏览器不支持摄像头访问，或当前页面非安全环境(HTTPS/localhost)。已自动启用鼠标模式。");
         }
 
+        const cameraStart = performance.now();
         let stream: MediaStream | null = null;
         let attempts = 0;
         const maxAttempts = 6;
@@ -450,7 +486,7 @@ export default function MediaPipeGestureTracker({
             const errMsg = (err.message || "").toLowerCase();
             const isBusy = errName === "notreadableerror" || errMsg.includes("in use") || errMsg.includes("readable") || errMsg.includes("lock") || errMsg.includes("source") || errMsg.includes("occupy");
             if (isBusy && attempts < maxAttempts) {
-              console.log(`Webcam is occupied or releasing (attempt ${attempts}/${maxAttempts}), retrying in 300ms...`);
+              console.log(`[MediaPipe Perf] Camera occupied, retrying (${attempts}/${maxAttempts})...`);
               await new Promise(resolve => setTimeout(resolve, 300));
             } else {
               throw err;
@@ -461,6 +497,9 @@ export default function MediaPipeGestureTracker({
         if (!stream) {
           throw new Error("初始化摄像头失败：未知原因。");
         }
+
+        const cameraDuration = performance.now() - cameraStart;
+        console.log(`[MediaPipe Perf] Camera stream acquired in ${cameraDuration.toFixed(2)}ms`);
 
         if (isDestroyed) {
           stream.getTracks().forEach(t => t.stop());
@@ -476,13 +515,11 @@ export default function MediaPipeGestureTracker({
         video.srcObject = stream;
         activeStreamRef.current = stream;
 
-        // Start playing the video
         await video.play().catch(e => console.warn("Video play interrupted or rejected by browser autoplay policy.", e));
 
-        // Start direct custom requestAnimationFrame tracking feed
         let isProcessing = false;
         let lastProcessTime = 0;
-        const PROCESS_INTERVAL = 50; // Max 20 frames analyzed per second. Striking the absolute best bridge of fluidity and device low-thermal stability
+        const PROCESS_INTERVAL = 50;
         
         const processFrame = async () => {
           if (isDestroyed || !isActive) return;
@@ -497,12 +534,17 @@ export default function MediaPipeGestureTracker({
             isProcessing = true;
             lastProcessTime = now;
             try {
+              const startProcessingTime = performance.now();
               await handsInstanceRef.current.send({ image: video });
+              const processingDuration = performance.now() - startProcessingTime;
+              if (Math.random() < 0.01) { 
+                console.log(`[MediaPipe Perf] Frame processing latency: ${processingDuration.toFixed(2)}ms`);
+              }
             } catch (err: any) {
               console.error("MediaPipe prediction frame skip:", err);
               const errMsg = String(err).toLowerCase();
               if (errMsg.includes("abort") || errMsg.includes("compileerror") || errMsg.includes("wasm") || errMsg.includes("webassembly")) {
-                console.warn("WASM or compilation error detected inside MediaPipe. Attempting self-healing CDN switch...");
+                console.warn("WASM error inside MediaPipe. Swapping CDN...");
                 sharedHandsInstance = null;
                 handsInstanceRef.current = null;
                 
@@ -536,9 +578,18 @@ export default function MediaPipeGestureTracker({
         };
 
         animationFrameIdRef.current = requestAnimationFrame(processFrame);
+        
+        // Succeeded within 3 seconds! Clear timeout
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         setRunning(true);
+        setCameraTimeout(false);
+
+        const totalDuration = performance.now() - initStartTimeRef.current;
+        setBootTimeMs(totalDuration);
+        console.log(`[MediaPipe Perf] Tracker loaded with camera successfully in ${totalDuration.toFixed(2)}ms!`);
       } catch (err: any) {
         console.warn("Camera initializer handled: ", err?.message || err);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         if (!isDestroyed) {
           let friendlyMessage = "无法访问摄像头。请验证是否已开启当前页面的摄像头访问权限。";
           const errMsg = (err.message || "").toLowerCase();
@@ -571,10 +622,25 @@ export default function MediaPipeGestureTracker({
 
     startMediaPipe();
 
+    // Auto trigger retry on first user gesture anywhere on window to bypass autoplay blocks
+    const handleFirstUserInteraction = () => {
+      if (!running && isActive && !loading) {
+        console.log("[MediaPipe Perf] User gesture detected on window. Auto reloading stream to bypass browser block...");
+        handleRetryWithCleanup();
+      }
+      window.removeEventListener("click", handleFirstUserInteraction);
+      window.removeEventListener("pointerdown", handleFirstUserInteraction);
+    };
+    window.addEventListener("click", handleFirstUserInteraction);
+    window.addEventListener("pointerdown", handleFirstUserInteraction);
+
     return () => {
       isDestroyed = true;
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       stopCameraAndTracking();
       if (swipeTimeoutRef.current) clearTimeout(swipeTimeoutRef.current);
+      window.removeEventListener("click", handleFirstUserInteraction);
+      window.removeEventListener("pointerdown", handleFirstUserInteraction);
     };
   }, [loading, isActive, retryTrigger]);
 
@@ -591,13 +657,47 @@ export default function MediaPipeGestureTracker({
 
     // Do NOT call close() on the shared global instance to avoid killing the Emscripten/WASM context
     handsInstanceRef.current = null;
-    onResultsRef.current = null; // deactivate callbacks
+    onResultsRef.current = null; 
 
     setRunning(false);
     hasSentHandPresenceRef.current = false;
     smoothedXRef.current = null;
     smoothedYRef.current = null;
     onHandUpdate(null);
+  }
+
+  function handleRetryWithCleanup() {
+    console.log("[MediaPipe] Manual recovery retry triggered. Releasing old stream resources...");
+    
+    // Safety release: prevent memory overflow
+    if (activeStreamRef.current) {
+      try {
+        activeStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          console.log(`[MediaPipe Cleanup] Forcefully stopped track: ${track.label}`);
+        });
+      } catch (e) {
+        console.error("Error stopping tracks on cleanup:", e);
+      }
+      activeStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      try {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+      } catch (e) {}
+    }
+
+    if (animationFrameIdRef.current !== null) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = null;
+    }
+
+    setPermissionError(null);
+    setCameraTimeout(false);
+    setRunning(false);
+    setRetryTrigger(prev => prev + 1);
   }
 
   const isDeviceInUse = permissionError?.includes("Device in use");
@@ -620,14 +720,24 @@ export default function MediaPipeGestureTracker({
             <span>手势追踪已暂停</span>
           </div>
         ) : running ? (
-          <div className="flex items-center gap-1.5 text-[#c5a059] text-xs font-semibold animate-pulse font-serif tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI 手势探测中 (五指张开上色)</span>
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5 text-[#c5a059] text-xs font-semibold animate-pulse font-serif tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI 手势探测中 (五指张开上色)</span>
+            </div>
+            {bootTimeMs !== null && (
+              <span className="text-[9px] font-mono text-[#8b7e6a]/70">启动耗时: {bootTimeMs.toFixed(0)}ms</span>
+            )}
           </div>
         ) : permissionError ? (
           <div className="flex items-center gap-1.5 text-orange-500 text-xs font-serif">
             <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
             <span>手势功能受限</span>
+          </div>
+        ) : cameraTimeout ? (
+          <div className="flex items-center gap-1.5 text-orange-400 text-xs font-serif">
+            <ShieldAlert className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
+            <span>摄像头唤醒超时</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-[#c5a059] text-xs font-serif">
@@ -718,6 +828,23 @@ export default function MediaPipeGestureTracker({
             <Sparkles className="w-5 h-5 mx-auto text-[#c5a059] animate-spin [animation-duration:10s]" />
             <span>AI 互动模块高速构建中...</span>
           </div>
+        ) : cameraTimeout ? (
+          <div className="text-center p-4 text-[#b5a796] text-xs leading-relaxed max-w-[210px] font-sans flex flex-col items-center justify-center gap-2 z-10 animate-fade-in bg-stone-950/80 w-full h-full">
+            <ShieldAlert className="w-5 h-5 text-orange-400 animate-pulse" />
+            <span className="text-[10px] text-orange-300 font-serif font-semibold tracking-wider">
+              摄像头唤醒超时
+            </span>
+            <span className="text-[10px] opacity-80 leading-normal text-[#8b7e6a] text-center font-serif">
+              相机连接未能于 3 秒内开启，可能被占用或在等待页面激活。
+            </span>
+            <button
+              onClick={handleRetryWithCleanup}
+              className="mt-1.5 px-3 py-1 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-bold font-serif text-[10px] tracking-wider rounded-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-1 w-full animate-bounce shadow-black"
+            >
+              <RotateCcw className="w-3 h-3 animate-spin [animation-duration:5s]" />
+              <span>释放资源并安全重试</span>
+            </button>
+          </div>
         ) : permissionError ? (
           <div className="text-center p-4 text-[#b5a796] text-xs leading-relaxed max-w-[210px] font-sans flex flex-col items-center justify-center gap-2 z-10">
             <ShieldAlert className="w-5 h-5 text-orange-500 animate-pulse" />
@@ -728,7 +855,7 @@ export default function MediaPipeGestureTracker({
               请允许浏览器访问您的摄像头。如果已被禁用，请在地址栏小锁图标中开启后重试。
             </span>
             <button
-              onClick={() => setRetryTrigger(prev => prev + 1)}
+              onClick={handleRetryWithCleanup}
               className="mt-1.5 px-3 py-1 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-bold font-serif text-[10px] tracking-wider rounded-xs transition-colors cursor-pointer shadow-md flex items-center justify-center gap-1 w-full"
             >
               <Camera className="w-3.5 h-3.5" />
@@ -741,7 +868,7 @@ export default function MediaPipeGestureTracker({
             <span>申请相机授权中...</span>
           </div>
         ) : (
-          <div className="absolute bottom-2 right-2 bg-[#c5a059]/90 px-2 py-0.5 rounded-sm text-[9px] text-[#0f0e0c] font-bold flex items-center gap-1 z-10">
+          <div className="absolute bottom-2 right-2 bg-[#c5a059]/90 px-2 py-0.5 rounded-sm text-[9px] text-[#0f0e0c] font-bold flex items-center gap-1 z-10 shadow-md">
             <CheckCircle className="w-2.5 h-2.5" /> Sensoring
           </div>
         )}
@@ -771,5 +898,13 @@ export default function MediaPipeGestureTracker({
     <div className="hidden pointer-events-none w-0 h-0 overflow-hidden" style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
       {content}
     </div>
+  );
+}
+
+export default function MediaPipeGestureTracker(props: MediaPipeGestureTrackerProps) {
+  return (
+    <GestureTrackerErrorBoundary>
+      <MediaPipeGestureTrackerInner {...props} />
+    </GestureTrackerErrorBoundary>
   );
 }

@@ -410,50 +410,86 @@ export default function App() {
               </motion.div>
             )}
 
-            {/* Filters and Search Bar Row */}
-            <div className="bg-[#14120f]/90 border border-[#c5a059]/15 p-4 rounded-xs mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 select-none shadow-lg">
-              <div className="flex flex-wrap items-center gap-2">
-                {["全部", "北朝 (魏/晋)", "隋唐盛世", "五代西夏"].map((group) => (
-                  <button
-                    type="button"
-                    key={group}
-                    onClick={() => {
-                      setLandingDynastyFilter(group);
-                      if (audioEnabled) audio.playChimes();
-                    }}
-                    className={`px-4.5 py-2 text-xs font-serif rounded-xs border transition-all cursor-pointer ${
-                      landingDynastyFilter === group
-                        ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-semibold shadow-md rounded-sm"
-                        : "bg-[#0f0e0c] border-white/5 text-[#8b7e6a] hover:text-[#f5f2ed] hover:border-[#c5a059]/40"
-                    }`}
-                  >
-                    {group}
-                  </button>
-                ))}
+            {/* Grand Unified Historical Mural Classification & Preservation Hall */}
+            <div className="bg-[#14120f]/95 border border-[#c5a059]/20 p-5 sm:p-6 rounded-md mb-6 flex flex-col gap-6 select-none shadow-2xl relative overflow-hidden">
+              {/* Decorative background accent line */}
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/40 to-transparent" />
+              
+              {/* Info Tips & Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#c5a059]/10">
+                <div>
+                  <h3 className="text-sm font-serif font-bold text-[#c5a059] tracking-widest flex items-center gap-1.5 flex-wrap">
+                    <Compass className="w-4 h-4 animate-pulse" />
+                    莫高名胜 · 壁画朝代历史分类
+                  </h3>
+                  <p className="text-[11px] text-[#8b7e6a] font-serif mt-1">
+                    💡 <span className="text-[#c6bdae] font-semibold">筛选提示</span>：点击下方大屏分类按键，快速过滤并锁定对应时期的传世壁画；选定左侧任一画轴卡片，点击其右侧的「点击进入修复」按键即可开启。
+                  </p>
+                </div>
+                
+                {/* Search query input */}
+                <div className="relative w-full md:max-w-xs shrink-0">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                  <input
+                    type="text"
+                    value={landingSearchQuery}
+                    onChange={(e) => setLandingSearchQuery(e.target.value)}
+                    placeholder="按名称、朝代、古窟或典故搜索..."
+                    className="w-full pl-9 pr-10 py-1.5 text-xs bg-[#0f0e0c] text-[#f5f2ed] border border-[#c5a059]/15 rounded-sm placeholder-stone-600 focus:outline-none focus:border-[#c5a059]/50 transition-colors font-sans"
+                  />
+                  {landingSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setLandingSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300 p-0.5 rounded-full"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="relative flex-1 md:max-w-sm">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
-                <input
-                  type="text"
-                  value={landingSearchQuery}
-                  onChange={(e) => setLandingSearchQuery(e.target.value)}
-                  placeholder="搜索壁画名、朝代、古窟或背景故事..."
-                  className="w-full pl-10 pr-10 py-2 text-xs bg-[#0f0e0c] text-[#f5f2ed] border border-[#c5a059]/15 rounded-xs placeholder-stone-500 focus:outline-none focus:border-[#c5a059]/60 transition-colors font-sans"
-                />
-                {landingSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setLandingSearchQuery("")}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300 p-0.5 rounded-full"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+              {/* Enlarged Classifications Buttons Grid / Choices */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { value: "全部", display: "全部历史朝代", sub: "历代传世名作精选" },
+                  { value: "北朝 (魏/晋)", display: "北朝古风时期", sub: "魏晋南北朝 · 朴拙神秘" },
+                  { value: "隋唐盛世", display: "隋唐繁盛之治", sub: "隋代至唐代 · 丰美艳丽" },
+                  { value: "五代西夏", display: "五代宋夏岁月", sub: "宋/西夏/五代 · 典雅精细" }
+                ].map((item) => {
+                  const isSelected = landingDynastyFilter === item.value;
+                  return (
+                    <button
+                      type="button"
+                      key={item.value}
+                      onClick={() => {
+                        setLandingDynastyFilter(item.value);
+                        if (audioEnabled) audio.playChimes();
+                      }}
+                      className={`relative flex flex-col items-center justify-center p-3 text-center border transition-all duration-200 cursor-pointer rounded-xs group ${
+                        isSelected
+                          ? "bg-[#c5a059]/15 border-[#c5a059] shadow-[0_4px_15px_rgba(197,160,89,0.18)]"
+                          : "bg-[#090807] border-white/5 hover:border-[#c5a059]/35 hover:bg-[#11100e]"
+                      }`}
+                    >
+                      {/* Selection indicator ornament */}
+                      <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all ${isSelected ? "bg-[#c5a059] shadow-[0_0_6px_#c5a059] scale-110" : "bg-transparent scale-50"}`} />
+                      
+                      <span className={`text-xs font-serif font-bold tracking-widest transition-colors ${isSelected ? "text-[#c5a059]" : "text-[#c6bdae] group-hover:text-stone-100"}`}>
+                        {item.display}
+                      </span>
+                      <span className={`text-[9px] font-sans mt-1.5 tracking-wide transition-colors ${isSelected ? "text-[#8b7e6a]" : "text-stone-500 group-hover:text-stone-400"}`}>
+                        {item.sub}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
 
-            {/* Immersive interactive material library display panels */}
+              {/* Delicate division separator */}
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/15 to-transparent my-1" />
+
+              {/* Immersive interactive material library display panels */}
             {(() => {
               const filteredLandingMurals = muralsData
                 .map((m, idx) => ({ ...m, originalIndex: idx }))
@@ -565,9 +601,7 @@ export default function App() {
                             referrerPolicy="no-referrer"
                             className="w-full h-full object-cover animate-ribbon-wave"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#13110e] via-[#13110e]/30 to-transparent"></div>
-                          
-                          <div className="absolute bottom-4 left-6 right-6 text-left flex items-end justify-between">
+                          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 text-left flex flex-col sm:flex-row sm:items-end justify-between gap-3 bg-gradient-to-t from-[#13110e] via-[#13110e]/60 to-transparent">
                             <div>
                               <span className={`px-2.5 py-0.5 text-[9px] font-sans border rounded-sm ${getDynastyBadgeStyle(previewMural.dynasty)}`}>
                                 {previewMural.dynasty} · {previewMural.cave}
@@ -576,6 +610,15 @@ export default function App() {
                                 {previewMural.title}
                               </h2>
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStartRestorationFromLibrary(previewMural.originalIndex)}
+                              className="px-7 py-3.5 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-serif font-extrabold text-sm sm:text-base rounded-md shadow-[0_6px_20px_rgba(197,160,89,0.45)] hover:shadow-[0_8px_25px_rgba(197,160,89,0.60)] active:scale-95 transition-all text-center flex items-center justify-center gap-2.5 cursor-pointer font-serif shrink-0 mb-0.5"
+                            >
+                              <Paintbrush className="w-4 h-4 sm:w-5 sm:h-5 text-current" />
+                              <span>点击进入修复</span>
+                            </button>
                           </div>
                         </div>
 
@@ -642,15 +685,6 @@ export default function App() {
                               ))}
                               {previewMural.restoredAreas.length > 3 && <span>...</span>}
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleStartRestorationFromLibrary(previewMural.originalIndex)}
-                              className="px-6 py-2.5 bg-[#c5a059] hover:bg-[#c5a059]/90 text-[#0f0e0c] font-serif font-bold text-xs rounded-xs shadow-[0_4px_14px_rgba(197,160,89,0.25)] hover:shadow-[0_6px_20px_rgba(197,160,89,0.35)] active:scale-95 transition-all text-center flex items-center justify-center gap-2 cursor-pointer font-serif"
-                            >
-                              <Paintbrush className="w-3.5 h-3.5" />
-                              <span>启封此卷 · 开始复原</span>
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -664,6 +698,7 @@ export default function App() {
                 </div>
               );
             })()}
+            </div>
           </motion.div>
         ) : (
           <motion.div
@@ -1273,24 +1308,26 @@ export default function App() {
       )}
 
       {/* Absolute Bottom Decorative Border */}
-      <footer className="mt-auto border-t border-[#c5a059]/15 bg-[#0a0907] py-6 text-center select-none flex flex-col items-center justify-center gap-1.5 relative overflow-hidden">
-        {/* Decorative dynamic top divider line */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/30 to-transparent"></div>
-        
-        {/* Digital preservation brand title */}
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[11px] text-[#c5a059]/90 font-serif tracking-[0.26em] text-xs">
-            莫高藏经 · 千年华壁数字化复原
-          </span>
-        </div>
+      {!showSplash && !showLanding && (
+        <footer className="mt-auto border-t border-[#c5a059]/15 bg-[#0a0907] py-6 text-center select-none flex flex-col items-center justify-center gap-1.5 relative overflow-hidden">
+          {/* Decorative dynamic top divider line */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#c5a059]/30 to-transparent"></div>
+          
+          {/* Digital preservation brand title */}
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[11px] text-[#c5a059]/90 font-serif tracking-[0.26em] text-xs">
+              莫高藏经 · 千年华壁数字化复原
+            </span>
+          </div>
 
-        <p className="text-[10px] font-serif text-[#8b7e6a] tracking-[0.3em] uppercase">
-          ECHOES OF DUNHUANG · DIGITAL PRESERVATION GROUP
-        </p>
-        <p className="text-[9px] font-sans text-stone-600 tracking-wider">
-          国家级数字资产传承示范系统 v2.0 · 莫高窟学术保护委员会监制
-        </p>
-      </footer>
+          <p className="text-[10px] font-serif text-[#8b7e6a] tracking-[0.3em] uppercase">
+            ECHOES OF DUNHUANG · DIGITAL PRESERVATION GROUP
+          </p>
+          <p className="text-[9px] font-sans text-stone-600 tracking-wider">
+            国家级数字资产传承示范系统 v2.0 · 莫高窟学术保护委员会监制
+          </p>
+        </footer>
+      )}
     </div>
   );
 }

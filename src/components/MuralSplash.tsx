@@ -7,6 +7,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { HandData, DunhuangDayInfo } from "../types";
 import { audio } from "../utils/audio";
 import { motion, AnimatePresence } from "motion/react";
+import dunhuangBuddha from "../assets/images/dunhuang_buddha_1781577713218.jpg";
+import silkRoadCaravan from "../assets/images/dunhuang_silk_road_wide_1781578705874.jpg";
 import { 
   Sparkles, 
   Volume2, 
@@ -93,6 +95,11 @@ export default function MuralSplash({
   const [textRevealed, setTextRevealed] = useState<boolean>(false);
   const [sweepProgress, setSweepProgress] = useState<number>(0);
   const textRevealedRef = useRef<boolean>(false);
+  const [allRibbonsShown, setAllRibbonsShown] = useState<boolean>(false);
+  const allRibbonsShownRef = useRef<boolean>(false);
+  const smoothedProgressRef = useRef<number>(0);
+  const touchStartYRef = useRef<number | null>(null);
+  const [scrollTop, setScrollTop] = useState<number>(0);
 
   const [selectedPigment, setSelectedPigment] = useState<typeof DUNHUANG_PIGMENTS[number]>(DUNHUANG_PIGMENTS[0]);
   const targetRgbRef = useRef<{ r: number; g: number; b: number }>({ r: 197, g: 160, b: 89 });
@@ -184,6 +191,18 @@ export default function MuralSplash({
     sparksRef.current = [...sparksRef.current, ...newSparks];
   };
 
+  const triggerTextReveal = () => {
+    if (textRevealedRef.current) return;
+    textRevealedRef.current = true;
+    setTextRevealed(true);
+    if (audioEnabled) {
+      audio.playGuzhengPluck(1.3);
+      setTimeout(() => {
+        audio.playTempleBell();
+      }, 400);
+    }
+  };
+
   // Core High-Performance Canvas Animation Cycle
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -214,19 +233,9 @@ export default function MuralSplash({
         waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + dist * 0.0035);
 
         // Calculate sweep progress when user moves cursor
-        if (y > window.innerHeight * 0.25 && y < window.innerHeight * 0.75) {
+        if (y > window.innerHeight * 0.02 && y < window.innerHeight * 0.98) {
           setSweepProgress((prev) => {
-            const next = prev + dist * 0.20; // 0.2% per pixel moved
-            if (next >= 100 && !textRevealedRef.current) {
-              textRevealedRef.current = true;
-              setTextRevealed(true);
-              if (audioEnabled) {
-                audio.playGuzhengPluck(1.3);
-                setTimeout(() => {
-                  audio.playTempleBell();
-                }, 400);
-              }
-            }
+            const next = prev + dist * 0.15; // Enhanced responsive action to grow ribbon faster
             return Math.min(100, next);
           });
         }
@@ -260,21 +269,19 @@ export default function MuralSplash({
           waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + dist * 0.008);
 
           // Waving gesture plucking accumulation
-          if (hY > H * 0.25 && hY < H * 0.75) {
+          if (hY > H * 0.02 && hY < H * 0.98) {
             setSweepProgress((prev) => {
-              const next = prev + dist * 0.35;
-              if (next >= 100 && !textRevealedRef.current) {
-                textRevealedRef.current = true;
-                setTextRevealed(true);
-                if (audioEnabled) {
-                  audio.playGuzhengPluck(1.3);
-                  setTimeout(() => {
-                    audio.playTempleBell();
-                  }, 400);
-                }
+              if (prev < 100) {
+                const next = prev + dist * 0.12; // Calibrated ultra-responsive camera waving progress integration
+                return Math.min(100, next);
               }
-              return Math.min(100, next);
+              return 100;
             });
+
+            // If ribbons are complete, detecting downward gesture (swipe screen down) triggers text reveal
+            if (sweepProgress >= 100 && dy > 4 && !textRevealedRef.current) {
+              triggerTextReveal();
+            }
           }
         }
         prevHandRef.current = { x: hX, y: hY };
@@ -296,14 +303,8 @@ export default function MuralSplash({
       const focusX = W * 0.65;
       const focusY = H * 0.52;
 
-      ctx.save();
-      const bgGrad = ctx.createRadialGradient(focusX, focusY, 20, focusX, focusY, W * 0.75);
-      bgGrad.addColorStop(0, "#191410"); // Warm golden-charcoal core
-      bgGrad.addColorStop(0.5, "#0d0c0a"); // Mogao cave dark transition
-      bgGrad.addColorStop(1, "#080706"); // Absolute pure ink black background
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, W, H);
-      ctx.restore();
+      // Clear canvas so the beautiful background image is fully visible
+      ctx.clearRect(0, 0, W, H);
 
       // --- 1. Concentric Glowing Orbits (Grotto Radar Scanning Waves) ---
       ctx.save();
@@ -330,11 +331,35 @@ export default function MuralSplash({
       ctx.restore();
 
       // --- 2. Elegant Wavy Harmonic Silk Ribbons (飞天丝带：从左至右，先后缓慢出现，厚重丝滑，宽窄不一如立体交织，且颜色与选定矿物色渐变色融合) ---
-      const t = timeRef.current;
-      // Staggered sequential entrance from left to right over 280 frames (~4.6 seconds per ribbon, extremely slow, majestic and graceful)
-      const r1Progress = Math.min(1.0, Math.max(0.0, (t - 40) / 280));
-      const r2Progress = Math.min(1.0, Math.max(0.0, (t - 220) / 280));
-      const r3Progress = Math.min(1.0, Math.max(0.0, (t - 400) / 280));
+      // Smoothly interpolate current drawing progress to eliminate any step stutter for elite visual flow
+      smoothedProgressRef.current += (sweepProgress - smoothedProgressRef.current) * 0.045;
+      if (Math.abs(sweepProgress - smoothedProgressRef.current) < 0.05) {
+        smoothedProgressRef.current = sweepProgress;
+      }
+
+      const currentProgress = smoothedProgressRef.current;
+
+      // Ribbon 1 Progress: draws when currentProgress is between 0% and 30%
+      let r1Progress = Math.min(1.0, Math.max(0.0, currentProgress / 30));
+
+      // Ribbon 2 Progress: starts only when Ribbon 1 is complete (currentProgress is between 30% and 60%)
+      let r2Progress = Math.min(1.0, Math.max(0.0, (currentProgress - 30) / 30));
+
+      // Ribbon 3 Progress: starts only when Ribbon 2 is complete (currentProgress is between 60% and 90%)
+      let r3Progress = Math.min(1.0, Math.max(0.0, (currentProgress - 60) / 30));
+
+      // If user has scroll-revealed the main body, instantly anchor ribbons to 100%
+      if (textRevealed) {
+        r1Progress = 1.0;
+        r2Progress = 1.0;
+        r3Progress = 1.0;
+      }
+
+      // Check if all ribbons are fully shown and transition background
+      if (r3Progress >= 0.99 && !allRibbonsShownRef.current) {
+        allRibbonsShownRef.current = true;
+        setAllRibbonsShown(true);
+      }
 
       const easeOutQuad = (x: number) => 1 - (1 - x) * (1 - x);
       const limitX1 = W * easeOutQuad(r1Progress);
@@ -361,7 +386,7 @@ export default function MuralSplash({
         const bottomPoints: {x: number; y: number}[] = [];
         
         // Build coordinates along the horizontal axis
-        for (let x = 0; x <= limitX; x += 6) {
+        for (let x = 0; x <= limitX; x += 10) {
           const cy = waveYFunc(x);
           const w = widthFunc(x);
           topPoints.push({ x, y: cy - w / 2 });
@@ -507,39 +532,40 @@ export default function MuralSplash({
           ctx.globalAlpha = textOpacity;
           
           // Align label gracefully relative to the tip of progress, clamped within safe borders to avoid cutting off
-          const labelX = Math.min(W - 100, Math.max(90, endX - 10));
-          const labelY = endY - 42;
+          const labelX = Math.min(W - 120, Math.max(90, endX - 10));
+          const labelY = endY - 50;
+          const leadY = labelY - 6;
           
           // Connect label dot to the actual ribbon tip with a beautiful traditional dotted lead line
           ctx.beginPath();
           ctx.moveTo(endX, endY - 8);
-          ctx.lineTo(labelX - 16, labelY - 4);
-          ctx.strokeStyle = `rgba(197, 160, 89, ${0.35 * textOpacity})`;
-          ctx.lineWidth = 0.5;
+          ctx.lineTo(labelX - 16, leadY);
+          ctx.strokeStyle = `rgba(197, 160, 89, ${0.45 * textOpacity})`;
+          ctx.lineWidth = 0.6;
           ctx.setLineDash([2, 2]);
           ctx.stroke();
           ctx.setLineDash([]);
           
           // Small decorative circular capsule representing the dynamic pigment formula color
           ctx.beginPath();
-          ctx.arc(labelX - 16, labelY - 4, 3, 0, Math.PI * 2);
+          ctx.arc(labelX - 16, leadY, 4, 0, Math.PI * 2);
           ctx.fillStyle = `rgb(${blendedInnerR}, ${blendedInnerG}, ${blendedInnerB})`;
           ctx.fill();
           ctx.strokeStyle = gildedColor;
-          ctx.lineWidth = 0.8;
+          ctx.lineWidth = 1.0;
           ctx.stroke();
           
-          // Elegant traditional typeface for color name, enhanced contrast with deep background dropshadow
-          ctx.font = "bold 13px 'STKaiti', 'KaiTi', 'Playfair Display', serif";
+          // Elegant traditional typeface for color name, enhanced contrast with deep background dropshadow (made bigger!)
+          ctx.font = "bold 19px 'STKaiti', 'KaiTi', 'Playfair Display', serif";
           ctx.fillStyle = "#f5f2ed";
           ctx.shadowColor = "#000000";
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 8;
           ctx.fillText(colorName, labelX, labelY);
           
           // Small English subtitle underneath
-          ctx.font = "italic 600 7px 'JetBrains Mono', monospace";
-          ctx.fillStyle = "rgba(197, 160, 89, 0.9)";
-          ctx.fillText(colorEng, labelX, labelY + 9);
+          ctx.font = "italic 600 10px 'JetBrains Mono', monospace";
+          ctx.fillStyle = "rgba(197, 160, 89, 0.95)";
+          ctx.fillText(colorEng, labelX, labelY + 13);
           
           ctx.restore();
         }
@@ -548,34 +574,34 @@ export default function MuralSplash({
       };
 
       // Curves and mathematical varying-width functions to recreate twisting satin ribbons
-      const waveY1 = (x: number) => H * 0.55 + 
-                     Math.sin(x * 0.0016 + waveTimeRef.current * 0.04) * 78 + 
-                     Math.cos(x * 0.0007 - waveTimeRef.current * 0.018) * 32;
+      const waveY1 = (x: number) => H * 0.73 + 
+                     Math.sin(x * 0.0016 + waveTimeRef.current * 0.04) * 65 + 
+                     Math.cos(x * 0.0007 - waveTimeRef.current * 0.018) * 22;
 
       const width1 = (x: number) => {
         const fold = Math.sin(x * 0.003 - waveTimeRef.current * 0.015);
         const foldAbs = Math.abs(fold); 
-        return 12 + 56 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.007));
+        return 10 + 44 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.007));
       };
 
-      const waveY2 = (x: number) => H * 0.62 + 
-                     Math.sin(x * 0.0013 - waveTimeRef.current * 0.045 + Math.PI) * 88 + 
-                     Math.cos(x * 0.0009 + waveTimeRef.current * 0.022) * 38;
+      const waveY2 = (x: number) => H * 0.79 + 
+                     Math.sin(x * 0.0013 - waveTimeRef.current * 0.045 + Math.PI) * 75 + 
+                     Math.cos(x * 0.0009 + waveTimeRef.current * 0.022) * 25;
 
       const width2 = (x: number) => {
         const fold = Math.cos(x * 0.0025 + waveTimeRef.current * 0.01 + 1.5);
         const foldAbs = Math.abs(fold);
-        return 10 + 60 * foldAbs * (0.75 + 0.25 * Math.sin(x * 0.005));
+        return 8 + 48 * foldAbs * (0.75 + 0.25 * Math.sin(x * 0.005));
       };
 
-      const waveY3 = (x: number) => H * 0.44 + 
-                     Math.sin(x * 0.0022 + waveTimeRef.current * 0.03) * 36 + 
-                     Math.sin(x * 0.0008 - waveTimeRef.current * 0.035) * 18;
+      const waveY3 = (x: number) => H * 0.63 + 
+                     Math.sin(x * 0.0022 + waveTimeRef.current * 0.03) * 30 + 
+                     Math.sin(x * 0.0008 - waveTimeRef.current * 0.035) * 12;
 
       const width3 = (x: number) => {
         const fold = Math.sin(x * 0.004 - waveTimeRef.current * 0.02 + 0.8);
         const foldAbs = Math.abs(fold);
-        return 8 + 40 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.01));
+        return 6 + 32 * foldAbs * (0.8 + 0.2 * Math.cos(x * 0.01));
       };
 
       // Draw the three satin silk ribbons with their distinct colors and geometries fuzed with the active mineral pigment
@@ -651,10 +677,7 @@ export default function MuralSplash({
           ctx.globalAlpha = s.alpha;
           ctx.lineWidth = s.size;
           ctx.lineCap = "round";
-          ctx.shadowBlur = 12;
-          ctx.shadowColor = s.color;
           ctx.stroke();
-          ctx.shadowBlur = 0;
           ctx.globalAlpha = 1.0;
 
           survivors.push(s);
@@ -741,43 +764,98 @@ export default function MuralSplash({
   };
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     triggerFirework(e.clientX, e.clientY);
-    setSweepProgress((prev) => {
-      const next = prev + 35; // Click contributes to opening scroll
-      if (next >= 100 && !textRevealedRef.current) {
-        textRevealedRef.current = true;
-        setTextRevealed(true);
-        if (audioEnabled) {
-          audio.playGuzhengPluck(1.3);
-          setTimeout(() => {
-            audio.playTempleBell();
-          }, 400);
-        }
-      }
-      return Math.min(100, next);
-    });
+    
+    if (sweepProgress < 100) {
+      setSweepProgress((prev) => {
+        const next = prev + 8; // Click/tap contributes slowly (about 8% per click) to incremental ribbon reveal
+        return Math.min(100, next);
+      });
+    } else if (!textRevealed) {
+      // If ribbons are fully drawn and background has faded, click anywhere in the container triggers the scroll down!
+      triggerTextReveal();
+    }
+  };
+
+  const scrollRatio = Math.min(1.0, scrollTop / (window.innerHeight || 800));
+  const scrollOpacity = Math.max(0.0, 1.0 - scrollRatio * 1.5);
+
+  const scrollToTextSection = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const textSection = document.getElementById("dunhuang-text-section");
+    if (textSection) {
+      textSection.scrollIntoView({ behavior: "smooth" });
+    }
+    triggerTextReveal();
   };
 
   return (
     <div 
       ref={containerRef}
+      onScroll={(e) => {
+        setScrollTop(e.currentTarget.scrollTop);
+      }}
       onClick={handleContainerClick}
-      className="fixed inset-0 w-full h-full z-100 flex flex-col justify-between overflow-hidden bg-[#0a0808] select-none text-stone-100"
+      className={`fixed inset-0 w-full h-full z-100 bg-[#0a0808] text-stone-100 select-none ${sweepProgress >= 99 ? "overflow-y-auto scroll-smooth animate-fade-in" : "overflow-hidden"}`}
     >
-      {/* Interactive canvas behind everything */}
-      <canvas
-        ref={canvasRef}
-        onClick={(e) => {
-          // Canvas click bubbles up or is handled directly
-          e.stopPropagation();
-          triggerFirework(e.clientX, e.clientY);
-        }}
-        className="absolute inset-0 w-full h-full block cursor-crosshair z-0"
-        title="点按屏幕绽放极乐净土古彩神光"
-      />
+      {/* SCREEN 1: HERO CANVAS SECTION (100vh) */}
+      <div className="relative w-full h-screen h-[100svh] overflow-hidden flex flex-col justify-between shrink-0 select-none">
+        {/* SPECIAL POSTER BACKDROP FILLED FULL SCREEN & BEAUTIFULLY VISIBLE */}
+        <div className="absolute inset-0 z-0 pointer-events-none select-none overflow-hidden bg-[#0a0808]">
+          <div 
+            className="absolute inset-0 h-full w-full transition-all duration-[2200ms] cubic-bezier(0.16, 1, 0.3, 1)"
+            style={{
+              opacity: allRibbonsShown ? 1.0 : (sweepProgress >= 90 ? Math.min(1.0, (sweepProgress - 90) / 10) : 0.0),
+              transform: `scale(${1.02 - scrollRatio * 0.015})`,
+            }}
+          >
+            <img 
+              src={silkRoadCaravan} 
+              alt="Dunhuang Silk Road Echoes landscape backdrop" 
+              className="w-full h-full object-cover object-center"
+              referrerPolicy="no-referrer"
+            />
+            {/* Unified 60% black dark mask overlay to dim the backdrop uniformly per user request */}
+            <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
+            
+            {/* Strong and tall bottom edge vignetting to transition perfectly to the black section below */}
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0a0808] via-[#0a0808]/92 via-[#0a0808]/40 to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-1/6 bg-gradient-to-b from-[#0a0808]/55 to-transparent z-0" />
+          </div>
+        </div>
 
-      {/* BACKGROUND GRAPHIC INTERLACE GRID */}
-      <div className="absolute inset-0 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.05] pointer-events-none z-0"></div>
+        {/* BACKGROUND GRAPHIC INTERLACE GRID */}
+        <div className="absolute inset-0 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.05] pointer-events-none z-5"></div>
+
+        {/* Majestic Dunhuang Echoes Calligraphy Title in the upper pattern area */}
+        {sweepProgress >= 90 && (
+          <div className="absolute inset-x-0 top-[28%] sm:top-[24%] flex flex-col items-center justify-center pointer-events-none select-none z-30 animate-fade-in font-serif">
+            <div className="flex flex-col items-center bg-stone-950/40 backdrop-blur-[2px] px-8 py-5 rounded-lg border border-white/5 shadow-2xl">
+              <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-[#c5a059] tracking-[0.55em] pl-[0.55em] drop-shadow-[0_4px_22px_rgba(0,0,0,0.95)] select-none font-serif leading-none">
+                敦煌遗响
+              </h2>
+              <div className="w-20 h-[1.5px] bg-gradient-to-r from-transparent via-[#c5a059]/60 to-transparent my-3.5 sm:my-4.5" />
+              <p className="text-[10px] sm:text-xs tracking-[0.55em] pl-[0.55em] text-[#eddcc4] font-serif uppercase font-extrabold drop-shadow-[0_2px_8px_rgba(0,0,0,0.98)]">
+                ECHOES OF DUNHUANG
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Interactive canvas layered beautifully on top of the backdrop but behind standard text elements */}
+        <canvas
+          ref={canvasRef}
+          onClick={(e) => {
+            // Canvas click bubbles up or is handled directly
+            e.stopPropagation();
+            triggerFirework(e.clientX, e.clientY);
+          }}
+          className="absolute inset-0 w-full h-full block cursor-crosshair z-10"
+          title="点按屏幕绽放极乐净土古彩神光"
+        />
 
       {/* ----------------- TOP HIGH-FIDELITY HEADER BAR ----------------- */}
       <div className="relative z-20 w-full px-4 sm:px-8 py-3.5 sm:py-4 bg-[#0d0c0a]/65 border-b border-[#c5a059]/15 backdrop-blur-md pointer-events-auto flex flex-row items-center justify-between gap-4">
@@ -796,8 +874,6 @@ export default function MuralSplash({
             </span>
           </div>
         </div>
-
-
 
         {/* Right Side: Re-construction Engineering context & Switches */}
         <div className="flex items-center gap-3">
@@ -843,149 +919,188 @@ export default function MuralSplash({
       </div>
 
       {/* GENTLE CALLIGRAPHY PLUCK GUIDE */}
-      {!textRevealed && (
-        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/75 border border-[#c5a059]/20 rounded-md p-6 backdrop-blur-sm w-[88%] max-w-xs shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-fade-in">
-          {/* Pulsing Fingerprint ring */}
-          <div className="relative w-14 h-14 flex items-center justify-center mb-4">
-            <span className="absolute inset-0 rounded-full bg-[#c5a059]/15 animate-ping" />
+      {sweepProgress < 100 ? (
+        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/85 border-2 border-[#c5a059]/40 rounded-xl p-8 sm:p-10 backdrop-blur-md w-[92%] max-w-sm sm:max-w-md shadow-[0_24px_64px_rgba(0,0,0,0.95)] animate-fade-in font-serif">
+          {/* Pulsing Fingerprint and waving ring */}
+          <div className="relative w-18 h-18 flex items-center justify-center mb-5">
+            <span className="absolute inset-0 rounded-full bg-[#c5a059]/35 animate-ping" />
+            <span className="absolute inset-2 rounded-full bg-[#c5a059]/15 animate-pulse" />
             <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
             >
-              <Fingerprint className="w-10 h-10 text-[#c5a059] opacity-90" />
+              <Fingerprint className="w-12 h-12 text-[#c5a059]" />
             </motion.div>
           </div>
-          <span className="text-[10px] tracking-[0.25em] text-[#c5a059]/80 font-mono block mb-1">
-            SWIPE TO REVEAL ALBUM
+          
+          <span className="text-xs tracking-[0.35em] text-[#ff6459] font-mono block mb-2 uppercase font-bold animate-pulse">
+            ✨ GESTURE / TOUCH TO REVEAL ✨
           </span>
-          <h3 className="text-[15px] font-serif font-semibold text-[#f5f2ed] tracking-widest mb-1.5">
-            触碰屏幕 · 唤醒庄严
+          
+          <h3 className="text-2xl sm:text-3xl font-serif font-black text-[#f5f2ed] tracking-[0.16em] mb-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            挥手 · 触碰屏幕互动
           </h3>
-          <p className="text-[11px] text-[#8b7e6a] leading-relaxed font-serif px-2">
-            滑动或点击屏幕，即可解密经卷、开卷圣境。
+          
+          <p className="text-sm sm:text-base text-stone-300 leading-relaxed font-serif px-2 mb-5 font-bold">
+            在摄像头前<span className="text-[#c5a059] font-bold">挥手</span>，或在屏幕上<span className="text-[#c5a059] font-bold">滑动/点击</span>，
+            <br />
+            即可陆续唤醒古老丝带，随着您的动作缓慢逐个出现！
           </p>
           
           {/* Aesthetic progress indicator */}
-          <div className="w-full h-[3px] bg-stone-900/90 rounded-full overflow-hidden mt-4.5 border border-white/5">
+          <div className="w-full h-1.5 bg-stone-900/95 rounded-full overflow-hidden mt-2 border border-white/10 shadow-inner">
             <div 
               className="h-full bg-gradient-to-r from-[#b3322a] via-[#c5a059] to-[#2f7a5b] transition-all duration-300 rounded-full"
               style={{ width: `${sweepProgress}%` }}
             />
           </div>
-          <span className="text-[9px] text-[#c5a059] font-mono tracking-widest mt-2 uppercase flex flex-col items-center gap-1">
-            <span>开卷解密: {Math.round(sweepProgress)}%</span>
-            <span className="text-[#8b7e6a] text-[8px] tracking-wider font-serif normal-case mt-0.5">
+          <span className="text-[11px] text-[#c5a059] font-mono tracking-widest mt-3.5 uppercase flex flex-col items-center gap-1.5">
+            <span className="font-bold text-stone-200">复原唤醒度: {Math.round(sweepProgress)}%</span>
+            <span className="text-[#8b7e6a] text-xs font-serif normal-case font-semibold">
               {preloadedImagesCount < 5 
                 ? `正在召回千年画幅色彩 (${preloadedImagesCount}/5)...` 
-                : "千年画卷神采归位 ✨"}
+                : "✨ 千年画卷神采归位，一触即发 ✨"}
             </span>
           </span>
         </div>
+      ) : (
+        scrollRatio < 0.15 && (
+          <div 
+            onClick={(e) => scrollToTextSection(e)}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto text-center select-none z-30 bg-stone-950/90 border border-[#c5a059]/40 rounded-full px-6 py-2.5 backdrop-blur-md shadow-[0_12px_44px_rgba(0,0,0,0.85)] cursor-pointer hover:border-[#c5a059] transition-all transform hover:-translate-y-1 animate-bounce"
+          >
+            <span className="text-xs tracking-[0.2em] text-[#c5a059] font-serif font-black animate-pulse flex items-center gap-2">
+              <span>画卷复原毕，向下滚动浏览文献</span>
+              <span className="text-sm">⬇</span>
+            </span>
+          </div>
+        )
       )}
 
-      {/* MAIN ATMOSPHERIC WORK AREA WITH CORNER DECO METADATA */}
-      <div className="relative flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row items-center justify-between pointer-events-none z-10 py-4 gap-4 md:gap-8 overflow-hidden">
+    </div>
+
+    {/* GRADIENT CONNECTOR THAT TRANSITIONS THE BACKGROUND TO DEEP BLACK */}
+    <div className="relative w-full h-16 bg-gradient-to-b from-[#0a0808] to-black z-10 pointer-events-none select-none shrink-0" />
+
+    {/* SCREEN 2: SCROLLABLE EXQUISITE BLACK TEXT & ACADEMIC REVEAL SECTION */}
+    <div 
+      id="dunhuang-text-section"
+      className="relative w-full min-h-screen bg-black text-stone-100 flex flex-col items-center justify-start pt-2 sm:pt-4 pb-20 px-4 md:px-8 z-20 font-serif"
+    >
+      <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center md:items-start justify-between gap-10 md:gap-16">
         
-        {/* BACKGROUND TELEMETRY LABELS (GUTTER PARALLAX STYLED) */}
-        <div className="absolute top-8 left-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col hidden md:flex">
-          <span>CAVE: #381 PRESET</span>
-          <span>SYSTEM CHRONOLOGY ACTIVE</span>
-        </div>
-        <div className="absolute top-8 right-8 text-[9px] text-[#8b7e6a]/40 font-mono tracking-widest uppercase flex flex-col items-end hidden md:flex">
-          <span>INDEX-ACCESS: DEC132514109</span>
-          <span>INTER-ACTIVE DIGITIZATION</span>
+        {/* Left Column: Authentic Chinese Calligraphy Display */}
+        <div className="flex flex-row items-stretch gap-6 select-none shrink-0 animate-fade-in">
+          {/* Vertical Title & Seal Column without right-border divider */}
+          <div className="flex flex-col items-center justify-start gap-4">
+            {/* Vertical Title '敦煌' */}
+            <div 
+              className="text-shadow-md text-6xl xl:text-7xl font-serif font-black text-[#c5a059] tracking-widest select-all writing-vertical-rl transition-all duration-500 hover:text-[#e5c158]"
+              style={{ writingMode: "vertical-rl", textOrientation: "upright" }}
+            >
+              敦煌
+            </div>
+            
+            {/* Subtitle '敦煌遗响' */}
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <div 
+                className="text-[#c5a059] font-serif text-sm tracking-[0.3em] font-bold"
+                style={{ writingMode: "vertical-rl", textOrientation: "upright" }}
+              >
+                敦煌遗响
+              </div>
+              
+              {/* Red Seal Stamp */}
+              <div 
+                className="w-8 h-8 border-2 border-[#b3322a] text-[#b3322a] font-serif font-black text-[10px] flex items-center justify-center bg-[#b3322a]/15 rounded-sm mt-1 shadow-[0_2px_12px_rgba(179,50,42,0.5)] leading-none select-none tracking-normal shrink-0 transition-transform duration-300 hover:scale-110 active:scale-95 cursor-pointer animate-pulse"
+                style={{ writingMode: "vertical-rl", textOrientation: "upright" }}
+                title="敦煌印章：遗响"
+              >
+                遗响
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Left-Aligned Typography Content Cluster (Exact Match to video style) */}
-        <div 
-          className="w-full md:w-3/5 text-left pointer-events-auto flex flex-col justify-center items-start selection:bg-[#b3322a]/30 transition-all duration-[1200ms] ease-out max-h-[82vh] md:max-h-[75vh] overflow-y-auto pr-2 md:pr-3 py-2 scrollbar-thin scrollbar-track-stone-900/40 scrollbar-thumb-[#c5a059]/20"
-          style={{
-            opacity: textRevealed ? 1 : 0,
-            transform: textRevealed ? "translateY(0)" : "translateY(40px)",
-            pointerEvents: textRevealed ? "auto" : "none"
-          }}
-        >
-          
+        {/* Right Column: Informative Content and Real-World groundings */}
+        <div className="flex-1 text-left flex flex-col justify-center items-start selection:bg-[#b3322a]/30 animate-fade-in font-serif">
           {/* CAVE PROJECT STAMP */}
           <div className="text-[10px] font-mono font-bold tracking-[0.35em] text-[#c5a059]/60 uppercase mb-2">
             洞窟透视计划 // CAVE MIRO PROJECT
           </div>
 
           {/* Action indicator prefix */}
-          <div className="font-serif text-[10px] sm:text-[11px] text-[#8b7e6a] tracking-widest mb-1.5 flex items-center gap-1.5">
+          <div className="font-serif text-[11px] text-[#8b7e6a] tracking-widest mb-1.5 flex items-center gap-1.5 font-bold">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#b3322a] animate-ping" />
-            <span>1. 双击激光 · 同忆色彩庄严中心</span>
+            <span>双按原色 · 重述尘世大漠画幅</span>
           </div>
 
           {/* High-Exploration Capsule */}
-          <div className="inline-flex items-center gap-1.5 bg-[#b3322a]/10 border border-[#b3322a]/30 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] tracking-widest font-semibold font-serif text-[#ff6459] mb-3 sm:mb-4 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 bg-[#b3322a]/10 border border-[#b3322a]/30 px-3 py-1 rounded-full text-[10px] tracking-widest font-semibold font-serif text-[#ff6459] mb-4 shadow-sm">
             <Sparkles className="w-3 h-3 text-[#ff6459]" />
             <span>高勘探极光 · 助尘物归</span>
           </div>
 
-          {/* Authentic Elegant Header */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-light text-[#f5f2ed] tracking-[0.24em] font-serif leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)]">
-            敦煌壁画神韵
+          {/* Title display */}
+          <h1 className="text-3xl sm:text-5xl font-bold text-[#f5f2ed] tracking-[0.24em] font-serif leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)] font-black">
+            敦煌遗响数字化探索
           </h1>
 
           {/* Golden accent bar */}
-          <div className="w-16 sm:w-24 h-[1.5px] bg-gradient-to-r from-[#c5a059] to-transparent my-3 sm:my-6" />
+          <div className="w-24 h-[1.5px] bg-gradient-to-r from-[#c5a059] to-transparent my-5" />
 
           {/* Authentic Description text block */}
-          <p className="text-[#c6bdae] text-[11px] sm:text-sm font-serif max-w-xl leading-relaxed tracking-wider">
-            移动鼠标（或倾斜手机）感应洞窟空间的奇幻深度。敦煌壁画以大自然的名义呈现：
+          <p className="text-[#c6bdae] text-xs sm:text-sm font-serif max-w-xl leading-relaxed tracking-wider mb-6">
+            移动鼠标感应大漠古道奇意。飞天霓裳扶摇，驼队缓缓前行。莫高窟特有天然重彩：
             <span className="text-[#64b092] font-semibold">孔雀石绿（石绿）</span>、
             <span className="text-[#ff6459] font-semibold">硫化汞红（朱砂）</span>及
             <span className="text-[#5984b0] font-semibold">青金石蓝</span>
-            相互碰撞，编织出跨越一千六百余载的彩色形貌感。
+            交融汇聚，交织成跨越两千里的彩色史诗，等待您的探索与唤醒。
           </p>
 
           {/* Real-time Google Search Grounded Culture Card */}
           {dunhuangToday && (
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-              className="mt-4 sm:mt-6 p-3 sm:p-4 w-full max-w-xl rounded-sm bg-[#16120e]/85 border border-[#c5a059]/30 shadow-[0_8px_32px_rgba(0,0,0,0.6)] backdrop-blur-md relative overflow-hidden group select-text pointer-events-auto"
+            <div
+              className="mb-8 p-4 sm:p-5 w-full max-w-xl rounded-sm bg-[#120d0a]/90 border border-[#c5a059]/35 shadow-[0_12px_48px_rgba(0,0,0,0.8)] backdrop-blur-md relative overflow-hidden group select-text pointer-events-auto hover:border-[#c5a059] transition-all"
             >
               {/* Decorative Corner Lines */}
-              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#c5a059]/70" />
-              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#c5a059]/70" />
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#c5a059]/70" />
-              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#c5a059]/70" />
+              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#c5a059]" />
+              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#c5a059]" />
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#c5a059]" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#c5a059]" />
 
               {/* Header category badge */}
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-1.5">
-                  <Bookmark className="w-3 h-3 text-[#ff6459]" />
-                  <span className="text-[9px] sm:text-[10px] font-serif font-semibold text-[#ff6459] tracking-widest leading-none uppercase">
+                  <Bookmark className="w-3.5 h-3.5 text-[#ff6459]" />
+                  <span className="text-[10px] sm:text-[11px] font-serif font-semibold text-[#ff6459] tracking-widest leading-none uppercase">
                     {dunhuangToday.heading || "今日资讯推荐"}
                   </span>
                 </div>
                 {dunhuangToday.dynasty && (
-                  <span className="text-[8px] sm:text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-[#c5a059]/10 text-stone-300 border border-[#c5a059]/20">
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-sm bg-[#c5a059]/10 text-stone-300 border border-[#c5a059]/20 font-semibold">
                     {dunhuangToday.dynasty}
                   </span>
                 )}
               </div>
 
               {/* Title */}
-              <h3 className="text-xs sm:text-sm font-serif font-bold text-[#f5f2ed] tracking-wider mb-1.5 flex items-center gap-1.5 select-all">
-                <Calendar className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
+              <h3 className="text-sm sm:text-base font-serif font-bold text-[#f5f2ed] tracking-wider mb-2 flex items-center gap-1.5 select-all">
+                <Calendar className="w-4 h-4 text-[#c5a059] shrink-0" />
                 <span>{dunhuangToday.title}</span>
               </h3>
 
               {/* Content */}
-              <p className="text-[#c6bdae] text-[10px] sm:text-xs font-serif leading-relaxed line-clamp-3 sm:line-clamp-none pr-1">
+              <p className="text-[#c6bdae] text-xs font-serif leading-relaxed pr-1">
                 {dunhuangToday.content}
               </p>
 
               {/* Footer labels */}
-              <div className="mt-2.5 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[9px] sm:text-[10px]">
+              <div className="mt-3 pt-2.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                 {dunhuangToday.tags && dunhuangToday.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {dunhuangToday.tags.map((tg, idx) => (
-                      <span key={idx} className="text-[#8b7e6a] font-serif">
+                      <span key={idx} className="text-[#8b7e6a] font-serif font-semibold">
                         #{tg}
                       </span>
                     ))}
@@ -997,214 +1112,30 @@ export default function MuralSplash({
                   </span>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* PRIMARY PULSING CALL-TO-ACTION BUTTON */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={textRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
-            transition={{ duration: 1.0, delay: 0.8 }}
-            className="mt-4 sm:mt-6 relative"
-          >
+          <div className="relative pointer-events-auto">
             <button
               onClick={handleStartGame}
-              className="relative group px-7 sm:px-9 py-2.5 sm:py-3.5 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-semibold tracking-[0.3em] text-[11px] sm:text-xs rounded-sm shadow-[0_4px_22px_rgba(197,160,89,0.3)] hover:shadow-[0_8px_30px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/40 transition-all cursor-pointer overflow-hidden flex items-center gap-2"
+              className="relative group px-10 py-4 sm:py-5 bg-gradient-to-r from-[#c5a059] to-[#bf974b] text-[#0f0e0c] font-serif font-bold tracking-[0.3em] text-xs sm:text-sm rounded-sm shadow-[0_8px_32px_rgba(197,160,89,0.3)] hover:shadow-[0_12px_40px_rgba(197,160,89,0.55)] hover:-translate-y-0.5 border border-[#e5c158]/50 transition-all cursor-pointer overflow-hidden flex items-center gap-2 select-none"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
-              <span className="relative flex items-center justify-center gap-1.5">
+              <span className="relative flex items-center justify-center gap-2">
                 <span>开启寻色之旅</span>
-                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </span>
             </button>
-          </motion.div>
+          </div>
 
           {/* Visual subtext footer */}
-          <div className="text-[#8b7e6a]/55 text-[10px] sm:text-[11px] font-serif tracking-widest mt-6 leading-normal select-none">
+          <div className="text-[#8b7e6a]/55 text-[11px] font-serif tracking-widest mt-6 leading-normal select-none">
             扫拂复原及壁画交互且触响，感受身色共鸣意境 · Grotto Parallax
           </div>
         </div>
-
-        {/* Right-Aligned Vertical Calligraphy Badge (Mogao Caves Silhouette facade) */}
-        <div 
-          className="w-full md:w-2/5 flex items-center justify-center pointer-events-auto transition-all duration-[1200ms] ease-out delay-100 hidden md:flex"
-          style={{
-            opacity: textRevealed ? 1 : 0,
-            transform: textRevealed ? "translateY(0)" : "translateY(40px)",
-            pointerEvents: textRevealed ? "auto" : "none"
-          }}
-        >
-          {/* Mogao Caves Pagoda Silhouette and Calligraphy Title */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={textRevealed ? { opacity: 0.95, scale: 1 } : { opacity: 0, scale: 0.85 }}
-            transition={{ duration: 1.6, ease: "easeOut" }}
-            onClick={() => {
-              // Interactive facade click triggers multiple fireworks centered on right side
-              const w = window.innerWidth;
-              const h = window.innerHeight;
-              triggerFirework(w * 0.7, h * 0.5);
-              triggerFirework(w * 0.72, h * 0.53);
-            }}
-            className="relative cursor-pointer w-64 h-[350px] flex flex-col items-center justify-between transition-all hover:scale-105 active:scale-95 group pb-2"
-            title="莫高窟数字九层楼 - 点击解密色彩"
-          >
-            {/* Outer golden rim highlights */}
-            
-            {/* The Pagoda Silhouette (Placed relative & proud at the top) */}
-            <div className="relative w-full h-[220px] flex items-center justify-center z-10">
-              <svg
-                viewBox="0 0 200 240"
-                className="w-full h-full text-[#c5a059]/20 fill-shadow group-hover:text-[#c5a059]/35 group-hover:scale-105 transition-all duration-700"
-                style={{
-                  filter: "drop-shadow(0 0 20px rgba(197, 160, 89, 0.2))"
-                }}
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* 9-Story Pagoda Structure Path (detailed & layered for superb aesthetic depth) */}
-                {/* Pagoda Base Grid */}
-                <path
-                  d="M 30 220 L 170 220 L 160 205 L 40 205 Z"
-                  fill="#151210"
-                  stroke="#c5a059"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.4"
-                />
-                
-                {/* Tier 1 Box (Ground portal) */}
-                <rect x="52" y="170" width="96" height="35" fill="#0d0c0a" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-                <path d="M 85 205 Q 100 175 115 205 Z" fill="#b3322a" opacity="0.6" stroke="#c5a059" strokeWidth="1" /> {/* Cavern arch */}
-                <line x1="72" y1="170" x2="72" y2="205" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-                <line x1="128" y1="170" x2="128" y2="205" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-
-                {/* Tier 2 Roof */}
-                <path
-                  d="M44,170 C44,170 48,158 64,158 L136,158 C152,158 156,170 156,170 L146,163 L54,163 Z"
-                  fill="#b3322a"
-                  stroke="#c5a059"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.5"
-                />
-                
-                {/* Tier 2 Box */}
-                <rect x="62" y="132" width="76" height="26" fill="#0e0d0b" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-                <line x1="82" y1="132" x2="82" y2="158" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.2" />
-                <line x1="118" y1="132" x2="118" y2="158" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.2" />
-
-                {/* Tier 3 Roof */}
-                <path
-                  d="M54,132 C54,132 58,122 72,122 L128,122 C142,122 146,132 146,132 L138,127 L62,127 Z"
-                  fill="#b3322a"
-                  stroke="#c5a059"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.5"
-                />
-                
-                {/* Tier 3 Box */}
-                <rect x="70" y="98" width="60" height="24" fill="#110e0c" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-                
-                {/* Tier 4 Roof */}
-                <path
-                  d="M62,98 C62,98 66,90 76,90 L124,90 C134,90 138,98 138,98 L130,94 L70,94 Z"
-                  fill="#b3322a"
-                  stroke="#c5a059"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.5"
-                />
-
-                {/* Top Tower / Spire */}
-                <rect x="80" y="66" width="40" height="24" fill="#0d0c0a" stroke="#c5a059" strokeWidth="0.8" strokeOpacity="0.3" />
-                <path
-                  d="M74,66 C74,66 78,58 86,58 L114,58 C122,58 126,66 126,66 Z"
-                  fill="#b3322a"
-                  stroke="#c5a059"
-                  strokeWidth="1"
-                  strokeOpacity="0.6"
-                />
-                
-                {/* Final Finial Spire on top */}
-                <line x1="100" y1="58" x2="100" y2="35" stroke="#c5a059" strokeWidth="1.8" strokeLinecap="round" />
-                <circle cx="100" cy="46" r="4.5" fill="none" stroke="#c5a059" strokeWidth="1.2" />
-                <path d="M 96 38 L 104 38" stroke="#c5a059" strokeWidth="1.2" />
-              </svg>
-            </div>
-
-            {/* Typography branding text (positioned elegantly below the pagoda silhouette) */}
-            <div className="relative z-10 flex flex-col items-center select-none text-shadow-lg mt-2 w-full">
-              {/* Sacred Golden Fingerprint-Lotus Dial */}
-              <div className="flex items-center gap-1.5 mb-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                <Fingerprint className="w-4 h-4 text-[#c5a059] animate-pulse" />
-                <span className="text-[9px] text-[#c5a059] font-mono tracking-widest uppercase">
-                  Mogao Caverns #381
-                </span>
-              </div>
-              
-              {/* Bold horizontal lettering */}
-              <span className="text-3xl font-serif font-black tracking-[0.35em] text-[#f5f2ed] pl-3 leading-none mb-2 select-all text-shadow transition-colors duration-300 group-hover:text-[#c5a059]">
-                莫高窟
-              </span>
-              
-              {/* Subtitles */}
-              <span className="text-[10px] text-[#8b7e6a] font-mono tracking-widest uppercase">
-                DUNHUANG INDICES
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* FOOTER MINERAL COLOR SWATCH BAR WITH ACCENT CHIPS */}
-      <div className="relative z-20 w-full px-8 py-6 border-t border-white/5 bg-[#0a0808]/95 backdrop-blur-sm pointer-events-auto select-none flex flex-col lg:flex-row items-center justify-between gap-4">
-        
-        {/* Description caption */}
-        <div className="text-left">
-          <h4 className="text-[10px] tracking-[0.2em] text-[#8b7e6a] uppercase font-semibold font-serif mb-0.5">
-            Dunhuang Authentic Mineral Pigment Database
-          </h4>
-          <p className="text-[11px] text-stone-400 font-serif font-light">
-            本卷完全解构莫高古窟千年壁画之原石色彩，采用真实提取并纯化的矿石配方色值
-          </p>
-        </div>
-
-        {/* Dynamic color swatches (Users can click them to trigger high-quality pigment explosions and color fusions!) */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {DUNHUANG_PIGMENTS.map((c) => {
-            const isSelected = selectedPigment.name === c.name;
-            return (
-              <div
-                key={c.name}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPigment(c);
-                  const w = window.innerWidth;
-                  const h = window.innerHeight;
-                  // Burst center random fireworks matching the pigment
-                  triggerFirework(w * (0.3 + Math.random() * 0.4), h * (0.35 + Math.random() * 0.3));
-                }}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-sm border transition-all cursor-pointer shadow-md"
-                style={{ 
-                  borderColor: isSelected ? c.hex : "rgba(255, 255, 255, 0.05)",
-                  backgroundColor: isSelected ? `${c.hex}18` : "rgba(28, 25, 23, 0.65)",
-                  boxShadow: isSelected ? `0 0 10px ${c.hex}40` : "none",
-                  transform: isSelected ? "scale(1.05)" : "scale(1)"
-                }}
-                title={`点击选定并将飞天丝带融合为《${c.name}》自然佛光色彩`}
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full inline-block shadow-inner ring-1 ring-white/10 text-shadow-sm"
-                  style={{ backgroundColor: c.hex }}
-                />
-                <span 
-                  className="text-[11px] font-serif font-medium tracking-wide transition-colors duration-200"
-                  style={{ color: isSelected ? "#ffffff" : "#a8a29e" }}
-                >
-                  {c.name}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
