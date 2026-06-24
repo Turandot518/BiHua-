@@ -43,7 +43,7 @@ export default function App() {
   
   // Settings
   const [isCameraEnabled, setIsCameraEnabled] = useState<boolean>(true);
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>("paint");
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>("spotlight");
   const [brushSize, setBrushSize] = useState<number>(80);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
   
@@ -88,6 +88,25 @@ export default function App() {
   // Dynamic Google Search Grounding data for Duhuang timely culture
   const [dunhuangToday, setDunhuangToday] = useState<DunhuangDayInfo | null>(null);
   const [loadingToday, setLoadingToday] = useState<boolean>(true);
+  const [surpriseTip, setSurpriseTip] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (interactionMode === "paint") {
+      setSurpriseTip("完成涂色有惊喜哦");
+      const timer = setTimeout(() => {
+        setSurpriseTip(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else if (interactionMode === "jigsaw") {
+      setSurpriseTip("完成拼图有惊喜哦");
+      const timer = setTimeout(() => {
+        setSurpriseTip(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else {
+      setSurpriseTip(null);
+    }
+  }, [interactionMode, currentMuralIndex]);
 
   useEffect(() => {
     fetch("/api/dunhuang-today")
@@ -834,6 +853,8 @@ export default function App() {
                     <Sparkles className="w-4.5 h-4.5 text-[#c5a059] animate-pulse shrink-0" />
                     {interactionMode === "jigsaw" ? (
                       <span>握拳 / 双指捏合 · 隔空拖拽碎片</span>
+                    ) : interactionMode === "spotlight" ? (
+                      <span>五指张开 · 镜头前移动手势操控聚光灯</span>
                     ) : (
                       <span>五指张开 · 镜头前隔空挥洒彩墨</span>
                     )}
@@ -841,6 +862,8 @@ export default function App() {
                   <div className="text-[#f5f2ed] text-xs sm:text-sm font-medium font-serif max-w-2xl leading-normal mt-0.5">
                     {interactionMode === "jigsaw" ? (
                       "在镜头前挥动五指移动，捏合五指（握拳）即可隔空抓取并放置碎片"
+                    ) : interactionMode === "spotlight" ? (
+                      "在摄像头前移动五指，操控聚光灯移动，照亮并探索古老壁画的深层细节"
                     ) : (
                       "在摄像头前轻柔挥动五指，即可拂去历史尘埃，还原千年彩绘"
                     )}
@@ -856,6 +879,8 @@ export default function App() {
                     <Sparkles className="w-4.5 h-4.5 text-[#c5a059] animate-pulse shrink-0" />
                     {interactionMode === "jigsaw" ? (
                       <span>鼠标按住拖拽 · 完美拼合壁画</span>
+                    ) : interactionMode === "spotlight" ? (
+                      <span>鼠标滑动移动 · 操控探索聚光灯</span>
                     ) : (
                       <span>鼠标滑动游走 · 勾勒复原彩绘</span>
                     )}
@@ -863,6 +888,8 @@ export default function App() {
                   <div className="text-[#f5f2ed] text-xs sm:text-sm font-medium font-serif max-w-2xl leading-normal mt-0.5">
                     {interactionMode === "jigsaw" ? (
                       "按住鼠标左键并拖动碎片到中间正确底图区域，完美拼合古迹"
+                    ) : interactionMode === "spotlight" ? (
+                      "直接在画布上滑动鼠标或手指触摸，操控神奇的聚光灯，探索隐藏在岁月中精美的敦煌壁画故事与神采"
                     ) : (
                       "直接在画布上滑动鼠标或手指触摸，妙笔生花唤醒沉睡千年的中国彩绘"
                     )}
@@ -877,6 +904,26 @@ export default function App() {
 
           {/* The interactive Compositor Canvas element */}
           <div className="relative overflow-hidden w-full rounded-xs">
+            {/* Surprise Tip overlay */}
+            <AnimatePresence>
+              {surpriseTip && (
+                <motion.div
+                  initial={{ opacity: 0, y: -15, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 15, scale: 0.92 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none max-w-[90%] text-center"
+                >
+                  <div className="bg-[#14120f]/95 border border-[#c5a059] px-6 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(197,160,89,0.35)] backdrop-blur-md">
+                    <Sparkles className="w-4 h-4 text-[#c5a059] shrink-0 animate-pulse" />
+                    <span className="text-[#f5f2ed] font-serif text-xs md:text-sm tracking-[0.15em] font-medium leading-none">
+                      {surpriseTip}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <CanvasErrorBoundary fallbackKey={`${currentMuralIndex}-${interactionMode}-${resetKey}`}>
               <AnimatePresence mode="wait">
                 <motion.div
@@ -920,7 +967,10 @@ export default function App() {
           <div className="flex flex-wrap gap-4 items-center justify-between mt-2 bg-[#1a1815] p-4 rounded-xs border border-white/5 shadow-md">
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={handleRestartMural}
+                onPointerDown={(e) => {
+                  handleRestartMural();
+                }}
+                onClick={(e) => e.preventDefault()}
                 className="px-4 py-2 bg-[#0f0e0c] hover:bg-[#c5a059]/15 border border-white/10 hover:border-[#c5a059]/40 rounded-xs text-[#b5a796] hover:text-[#f5f2ed] text-xs flex items-center gap-2 transition-all cursor-pointer font-serif"
               >
                 <RefreshCcw className="w-3.5 h-3.5" />
@@ -928,10 +978,27 @@ export default function App() {
               </button>
               
               <button
-                onClick={() => {
+                onPointerDown={(e) => {
+                  setInteractionMode("spotlight");
+                  if (audioEnabled) audio.playChimes();
+                }}
+                onClick={(e) => e.preventDefault()}
+                className={`px-4 py-2 border rounded-xs text-xs flex items-center gap-2 transition-all cursor-pointer font-serif ${
+                  interactionMode === "spotlight"
+                    ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-bold"
+                    : "bg-[#0f0e0c] border-white/10 text-[#b5a796] hover:text-[#f5f2ed] hover:border-[#c5a059]/40"
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>聚光探秘</span>
+              </button>
+
+              <button
+                onPointerDown={(e) => {
                   setInteractionMode("paint");
                   if (audioEnabled) audio.playChimes();
                 }}
+                onClick={(e) => e.preventDefault()}
                 className={`px-4 py-2 border rounded-xs text-xs flex items-center gap-2 transition-all cursor-pointer font-serif ${
                   interactionMode === "paint"
                     ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-bold"
@@ -943,25 +1010,11 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => {
-                  setInteractionMode("spotlight");
-                  if (audioEnabled) audio.playChimes();
-                }}
-                className={`px-4 py-2 border rounded-xs text-xs flex items-center gap-2 transition-all cursor-pointer font-serif ${
-                  interactionMode === "spotlight"
-                    ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-bold"
-                    : "bg-[#0f0e0c] border-white/10 text-[#b5a796] hover:text-[#f5f2ed] hover:border-[#c5a059]/40"
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>聚光探索</span>
-              </button>
-
-              <button
-                onClick={() => {
+                onPointerDown={(e) => {
                   setInteractionMode("jigsaw");
                   if (audioEnabled) audio.playChimes();
                 }}
+                onClick={(e) => e.preventDefault()}
                 className={`px-4 py-2 border rounded-xs text-xs flex items-center gap-2 transition-all cursor-pointer font-serif ${
                   interactionMode === "jigsaw"
                     ? "bg-[#c5a059] border-[#c5a059] text-[#0f0e0c] font-bold"
@@ -1053,7 +1106,7 @@ export default function App() {
             
             <div className="flex items-center gap-2 border-b border-white/10 pb-3">
               <Sliders className="w-4.5 h-4.5 text-[#c5a059]" />
-              <h3 className="text-sm font-serif font-bold text-[#f5f2ed] tracking-wider">交互参数校准</h3>
+              <h3 className="text-sm font-serif font-bold text-[#f5f2ed] tracking-wider">点击下方切换玩法</h3>
             </div>
 
             {/* Brush restoration style selector */}
@@ -1061,24 +1114,11 @@ export default function App() {
               <span className="text-[10px] uppercase tracking-wider text-[#8b7e6a] font-serif">1. 交互核心模式</span>
               <div className="grid grid-cols-3 gap-1.5 bg-[#0f0e0c] p-1 rounded-xs border border-white/5">
                 <button
-                  onClick={() => {
-                    setInteractionMode("paint");
-                    if (audioEnabled) audio.playChimes();
-                  }}
-                  className={`py-2 text-[10px] rounded-xs font-serif transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                    interactionMode === "paint"
-                      ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
-                      : "text-[#8b7e6a] hover:text-[#f5f2ed]"
-                  }`}
-                >
-                  <Paintbrush className="w-3.5 h-3.5" />
-                  <span>神笔随色</span>
-                </button>
-                <button
-                  onClick={() => {
+                  onPointerDown={(e) => {
                     setInteractionMode("spotlight");
                     if (audioEnabled) audio.playChimes();
                   }}
+                  onClick={(e) => e.preventDefault()}
                   className={`py-2 text-[10px] rounded-xs font-serif transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     interactionMode === "spotlight"
                       ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
@@ -1089,10 +1129,26 @@ export default function App() {
                   <span>聚光探秘</span>
                 </button>
                 <button
-                  onClick={() => {
+                  onPointerDown={(e) => {
+                    setInteractionMode("paint");
+                    if (audioEnabled) audio.playChimes();
+                  }}
+                  onClick={(e) => e.preventDefault()}
+                  className={`py-2 text-[10px] rounded-xs font-serif transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    interactionMode === "paint"
+                      ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
+                      : "text-[#8b7e6a] hover:text-[#f5f2ed]"
+                  }`}
+                >
+                  <Paintbrush className="w-3.5 h-3.5" />
+                  <span>神笔随色</span>
+                </button>
+                <button
+                  onPointerDown={(e) => {
                     setInteractionMode("jigsaw");
                     if (audioEnabled) audio.playChimes();
                   }}
+                  onClick={(e) => e.preventDefault()}
                   className={`py-2 text-[10px] rounded-xs font-serif transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     interactionMode === "jigsaw"
                       ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
@@ -1223,13 +1279,13 @@ export default function App() {
                 <div className="bg-[#0f0e0c] p-4 border border-[#c5a059]/15 rounded-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
-                      <span>🎨</span>
-                      <span>神笔随色 (极色重光)</span>
+                      <span>👁️</span>
+                      <span>聚光探秘 (神引烛照)</span>
                     </div>
                     <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-serif leading-relaxed">
-                      <li>允许浏览器开启<b>摄像头</b>权限</li>
-                      <li>在对焦点前<b>张开五指</b>并轻缓移动</li>
-                      <li>挥洒天然重彩，拂尘还原壁画真色彩</li>
+                      <li>对准屏幕并在空中<b>移动手掌/准星</b></li>
+                      <li>保持<b>手掌舒开</b>即可投射探索光环</li>
+                      <li>穿透斑驳微尘，探秘隐匿起线与底色</li>
                     </ul>
                   </div>
                 </div>
@@ -1238,13 +1294,13 @@ export default function App() {
                 <div className="bg-[#0f0e0c] p-4 border border-[#c5a059]/15 rounded-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-[#c5a059] font-serif font-bold text-xs select-none">
-                      <span>👁️</span>
-                      <span>聚光探秘 (神引烛照)</span>
+                      <span>🎨</span>
+                      <span>神笔随色 (极色重光)</span>
                     </div>
                     <ul className="text-[11px] text-[#b5a796] space-y-1.5 list-disc pl-3 font-serif leading-relaxed">
-                      <li>对准屏幕并在空中<b>移动手掌/准星</b></li>
-                      <li>保持<b>手掌舒开</b>即可投射探索光环</li>
-                      <li>穿透斑驳微尘，探秘隐匿起线与底色</li>
+                      <li>允许浏览器开启<b>摄像头</b>权限</li>
+                      <li>在对焦点前<b>张开五指</b>并轻缓移动</li>
+                      <li>挥洒天然重彩，拂尘还原壁画真色彩</li>
                     </ul>
                   </div>
                 </div>

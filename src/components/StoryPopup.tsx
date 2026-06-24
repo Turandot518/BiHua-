@@ -181,19 +181,6 @@ export default function StoryPopup({
           <div className="w-full sm:w-auto flex flex-col items-center sm:items-end gap-2">
             <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2.5 items-center">
               <button
-                onClick={onClose}
-                disabled={countdown > 0}
-                className={`w-full sm:w-auto px-4 py-2.5 bg-[#1a1815] border text-xs rounded-xs flex items-center justify-center gap-1.5 transition-colors font-serif select-none ${
-                  countdown > 0 
-                    ? "opacity-40 text-stone-600 border-white/5 cursor-not-allowed" 
-                    : "text-[#c5a059] border-[#c5a059]/30 hover:bg-[#c5a059]/10 cursor-pointer"
-                }`}
-                title="关闭此面板，返回古卷素材库"
-              >
-                <span>返回素材库</span>
-              </button>
-
-              <button
                 onClick={onReturnToLibrary}
                 disabled={countdown > 0}
                 className={`w-full sm:w-auto px-6 py-2.5 text-xs rounded-xs flex items-center justify-center gap-2 font-serif font-bold transition-all tracking-widest ${

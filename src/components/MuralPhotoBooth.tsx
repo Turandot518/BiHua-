@@ -45,9 +45,15 @@ export default function MuralPhotoBooth({
   const [mergedResult, setMergedResult] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"vintage" | "sepia" | "normal">("vintage");
 
+  const [keyColor, setKeyColor] = useState<{ r: number; g: number; b: number }>({ r: 200, g: 200, b: 200 });
+  const [tolerance, setTolerance] = useState<number>(45);
+  const [fadeRange, setFadeRange] = useState<number>(15);
+  const [isKeyColorSampled, setIsKeyColorSampled] = useState<boolean>(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Initialize camera stream
   useEffect(() => {
@@ -58,6 +64,151 @@ export default function MuralPhotoBooth({
       stopCamera();
     };
   }, [isOpen, uploadedImage, capturedImage]);
+
+  // Click on the live preview canvas to manually select a backdrop color to key out
+  const handleLiveCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = liveCanvasRef.current;
+    if (!canvas || !videoRef.current) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+    const clickY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+
+    // Draw the raw camera to an offscreen buffer to sample the unkeyed color
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext("2d");
+    if (tempCtx) {
+      tempCtx.translate(canvas.width, 0);
+      tempCtx.scale(-1, 1);
+      tempCtx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      try {
+        const pixel = tempCtx.getImageData(Math.floor(clickX), Math.floor(clickY), 1, 1).data;
+        setKeyColor({ r: pixel[0], g: pixel[1], b: pixel[2] });
+        setIsKeyColorSampled(true);
+        audio.playChimes();
+      } catch (err) {
+        console.warn("Could not sample color:", err);
+      }
+    }
+  };
+
+  // Real-time live chroma key composite loop to show person segmented onto mural
+  useEffect(() => {
+    let active = true;
+    let animId: number;
+
+    const muralImg = new Image();
+    muralImg.crossOrigin = "anonymous";
+    muralImg.src = mural.imageSrc;
+
+    const offscreenCanvas = document.createElement("canvas");
+    const offscreenCtx = offscreenCanvas.getContext("2d");
+
+    const tick = () => {
+      if (!active) return;
+      
+      const video = videoRef.current;
+      const liveCanvas = liveCanvasRef.current;
+
+      if (video && liveCanvas && video.readyState >= 2) {
+        const ctx = liveCanvas.getContext("2d");
+        if (ctx && offscreenCtx) {
+          const W = video.videoWidth || 640;
+          const H = video.videoHeight || 480;
+
+          if (liveCanvas.width !== W || liveCanvas.height !== H) {
+            liveCanvas.width = W;
+            liveCanvas.height = H;
+          }
+          if (offscreenCanvas.width !== W || offscreenCanvas.height !== H) {
+            offscreenCanvas.width = W;
+            offscreenCanvas.height = H;
+          }
+
+          // 1. Draw Mural as background (cover)
+          if (muralImg.complete) {
+            const scale = Math.max(W / muralImg.width, H / muralImg.height);
+            const x = (W - muralImg.width * scale) / 2;
+            const y = (H - muralImg.height * scale) / 2;
+            ctx.drawImage(muralImg, x, y, muralImg.width * scale, muralImg.height * scale);
+          } else {
+            ctx.fillStyle = "#12100e";
+            ctx.fillRect(0, 0, W, H);
+          }
+
+          // 2. Draw mirrored video to offscreen canvas
+          offscreenCtx.save();
+          offscreenCtx.translate(W, 0);
+          offscreenCtx.scale(-1, 1);
+          offscreenCtx.drawImage(video, 0, 0, W, H);
+          offscreenCtx.restore();
+
+          // 3. Process pixels
+          const imgData = offscreenCtx.getImageData(0, 0, W, H);
+          const data = imgData.data;
+
+          // Auto-sample background color from top-left corners if not manually set
+          if (!isKeyColorSampled) {
+            let sumR = 0, sumG = 0, sumB = 0, count = 0;
+            for (let sy = 15; sy < 25; sy++) {
+              for (let sx = 15; sx < 25; sx++) {
+                const idx = (sy * W + sx) * 4;
+                sumR += data[idx];
+                sumG += data[idx+1];
+                sumB += data[idx+2];
+                count++;
+              }
+            }
+            if (count > 0) {
+              setKeyColor({
+                r: Math.round(sumR / count),
+                g: Math.round(sumG / count),
+                b: Math.round(sumB / count)
+              });
+              setIsKeyColorSampled(true);
+            }
+          }
+
+          const { r: kr, g: kg, b: kb } = keyColor;
+          const tol = tolerance;
+          const fade = fadeRange;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i+1];
+            const b = data[i+2];
+
+            // Color distance
+            const dist = Math.sqrt((r - kr)**2 + (g - kg)**2 + (b - kb)**2);
+
+            if (dist < tol) {
+              data[i+3] = 0;
+            } else if (dist < tol + fade) {
+              data[i+3] = ((dist - tol) / fade) * 255;
+            }
+          }
+
+          offscreenCtx.putImageData(imgData, 0, 0);
+
+          // 4. Overlay user over the background mural
+          ctx.drawImage(offscreenCanvas, 0, 0);
+        }
+      }
+
+      animId = requestAnimationFrame(tick);
+    };
+
+    if (isOpen && stream && !capturedImage && !uploadedImage) {
+      animId = requestAnimationFrame(tick);
+    }
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(animId);
+    };
+  }, [isOpen, stream, capturedImage, uploadedImage, keyColor, tolerance, fadeRange, isKeyColorSampled, mural.imageSrc]);
 
   const startCamera = async () => {
     setIsLoading(true);
@@ -182,7 +333,7 @@ export default function MuralPhotoBooth({
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Capture snapshot from live video
+  // Capture snapshot from live video with background segmentation
   const captureSnapshot = () => {
     if (!videoRef.current) return;
 
@@ -191,17 +342,42 @@ export default function MuralPhotoBooth({
     playShutterSound();
     setTimeout(() => setIsFlashActive(false), 240);
 
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = videoRef.current.videoWidth || 640;
-    tempCanvas.height = videoRef.current.videoHeight || 480;
-    const ctx = tempCanvas.getContext("2d");
-    if (!ctx) return;
+    const W = videoRef.current.videoWidth || 640;
+    const H = videoRef.current.videoHeight || 480;
 
-    // Mirrors video capture since live preview is mirrored
-    ctx.translate(tempCanvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(videoRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
-    
+    // We capture ONLY the transparent cutout user from the offscreen canvas processing!
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = W;
+    tempCanvas.height = H;
+    const tempCtx = tempCanvas.getContext("2d");
+    if (!tempCtx) return;
+
+    // Render the mirrored user to this canvas
+    tempCtx.translate(W, 0);
+    tempCtx.scale(-1, 1);
+    tempCtx.drawImage(videoRef.current, 0, 0, W, H);
+
+    // Apply color-based segmentation (chroma keying) to capture transparent user foreground
+    const imgData = tempCtx.getImageData(0, 0, W, H);
+    const data = imgData.data;
+    const { r: kr, g: kg, b: kb } = keyColor;
+    const tol = tolerance;
+    const fade = fadeRange;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+
+      const dist = Math.sqrt((r - kr)**2 + (g - kg)**2 + (b - kb)**2);
+      if (dist < tol) {
+        data[i+3] = 0;
+      } else if (dist < tol + fade) {
+        data[i+3] = ((dist - tol) / fade) * 255;
+      }
+    }
+    tempCtx.putImageData(imgData, 0, 0);
+
     // Convert to image
     const dataUrl = tempCanvas.toDataURL("image/png");
     setCapturedImage(dataUrl);
@@ -214,6 +390,7 @@ export default function MuralPhotoBooth({
     setCapturedImage(null);
     setUploadedImage(null);
     setMergedResult(null);
+    setIsKeyColorSampled(false);
     startCamera();
   };
 
@@ -273,181 +450,52 @@ export default function MuralPhotoBooth({
 
     ctx.save();
 
-    if (frameStyle === "feitian") {
-      // --- STYLE A: Feitian Portrait Frame (Mural background, user centered inside a beautiful antique scroll cutout) ---
-      // Draw background mural
-      ctx.drawImage(muralImg, 0, 0, W, H);
-
-      // Add a darkening semi-transparent layer over the background to let the portrait stand out
-      ctx.fillStyle = "rgba(10, 8, 6, 0.55)";
-      ctx.fillRect(0, 0, W, H);
-
-      // Draw user image inside a center circular scroll shape
-      const portraitRadius = 240;
-      const portraitX = W / 2;
-      const portraitY = H / 2 - 30;
-
-      ctx.save();
-      // Draw a highly artistic lotus / cloud cutout mask path
-      ctx.beginPath();
-      ctx.arc(portraitX, portraitY, portraitRadius, 0, Math.PI * 2);
-      ctx.clip();
-
-      // Draw and scale portrait inside clip
-      const aspect = userImg.width / userImg.height;
-      let drawW = portraitRadius * 2;
-      let drawH = drawW / aspect;
-      if (drawH < portraitRadius * 2) {
-        drawH = portraitRadius * 2;
-        drawW = drawH * aspect;
-      }
-      ctx.drawImage(userImg, portraitX - drawW/2, portraitY - drawH/2, drawW, drawH);
-      
-      // Apply vintage filters if requested
-      applyCanvasFilter(ctx, portraitX - drawW/2, portraitY - drawH/2, drawW, drawH);
-
-      ctx.restore();
-
-      // Draw artistic borders around the cutout frame
-      ctx.strokeStyle = "#c5a059";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.arc(portraitX, portraitY, portraitRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(229, 193, 125, 0.5)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(portraitX, portraitY, portraitRadius + 12, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Add floating text / calligraphy
-      ctx.fillStyle = "#f5f2ed";
-      ctx.font = "italic bold 32px Georgia, serif, KaiTi";
-      ctx.textAlign = "center";
-      ctx.fillText(`《${mural.title}》 妙相合影`, W / 2, H - 110);
-
-      ctx.fillStyle = "#c5a059";
-      ctx.font = "20px Georgia, serif, KaiTi";
-      ctx.fillText(`${mural.cave} · ${mural.dynasty}期`, W / 2, H - 75);
-
-    } else if (frameStyle === "fresco-blend") {
-      // --- STYLE B: Fresco Blend (Double exposure / mural overlay texture blend) ---
-      // Draw user image full screen
-      const aspect = userImg.width / userImg.height;
-      let drawW = W;
-      let drawH = W / aspect;
-      if (drawH < H) {
-        drawH = H;
-        drawW = drawH * aspect;
-      }
-      ctx.drawImage(userImg, W/2 - drawW/2, H/2 - drawH/2, drawW, drawH);
-      applyCanvasFilter(ctx, 0, 0, W, H);
-
-      // Blend mural texture map
-      ctx.save();
-      ctx.globalCompositeOperation = "color-burn";
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(muralImg, 0, 0, W, H);
-      ctx.restore();
-
-      ctx.save();
-      ctx.globalCompositeOperation = "overlay";
-      ctx.globalAlpha = 0.40;
-      ctx.drawImage(muralImg, 0, 0, W, H);
-      ctx.restore();
-
-      // Add fine antique cracks overlay border
-      ctx.strokeStyle = "rgba(197, 160, 89, 0.4)";
-      ctx.lineWidth = 24;
-      ctx.strokeRect(12, 12, W - 24, H - 24);
-
-      ctx.strokeStyle = "rgba(197, 160, 89, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(28, 28, W - 56, H - 56);
-
-      // Calligraphy labeling
-      ctx.fillStyle = "#f5f2ed";
-      ctx.font = "bold 34px Georgia, serif, KaiTi";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 6;
-      ctx.fillText(`《${mural.title}》`, 70, H - 120);
-
-      ctx.fillStyle = "#c5a059";
-      ctx.font = "18px Georgia, serif, KaiTi";
-      ctx.fillText(`朝代：${mural.dynasty}窟  /  窟号：${mural.cave}`, 70, H - 85);
-      ctx.fillText("数字化保护委员会 · 艺术留念", 70, H - 55);
-
-    } else {
-      // --- STYLE C: Archivist prestige poster card (Side-by-side or elegant postcard canvas) ---
-      // Left side: user portrait
-      // Right side: restored mural
-      const midX = W / 2;
-
-      // Draw split divider line in gold
-      ctx.fillStyle = "#1e1b18";
-      ctx.fillRect(0, 0, W, H);
-
-      // Left portrait within box
-      const boxW = 440;
-      const boxH = 550;
-      const leftX = 40;
-      const topY = 40;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(leftX, topY, boxW, boxH);
-      ctx.clip();
-      const leftAspect = userImg.width / userImg.height;
-      let leftW = boxW;
-      let leftH = boxW / leftAspect;
-      if (leftH < boxH) {
-        leftH = boxH;
-        leftW = leftH * leftAspect;
-      }
-      ctx.drawImage(userImg, leftX + boxW/2 - leftW/2, topY + boxH/2 - leftH/2, leftW, leftH);
-      applyCanvasFilter(ctx, leftX, topY, boxW, boxH);
-      ctx.restore();
-
-      // Right mural within box
-      const rightX = W - boxW - 40;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(rightX, topY, boxW, boxH);
-      ctx.clip();
-      const rightAspect = muralImg.width / muralImg.height;
-      let rightW = boxW;
-      let rightH = boxW / rightAspect;
-      if (rightH < boxH) {
-        rightH = boxH;
-        rightW = rightH * rightAspect;
-      }
-      ctx.drawImage(muralImg, rightX + boxW/2 - rightW/2, topY + boxH/2 - rightH/2, rightW, rightH);
-      ctx.restore();
-
-      // Double golden frames
-      ctx.strokeStyle = "rgba(197, 160, 89, 0.6)";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(leftX, topY, boxW, boxH);
-      ctx.strokeRect(rightX, topY, boxW, boxH);
-
-      // Bottom information card text
-      ctx.fillStyle = "#8b7e6a";
-      ctx.font = "14px Georgia, serif, KaiTi";
-      ctx.fillText("莫高数字化临幕档案", leftX, H - 100);
-
-      ctx.fillStyle = "#f5f2ed";
-      ctx.font = "bold 26px Georgia, serif, KaiTi";
-      ctx.fillText(`《${mural.title}》 千年壁画守护人`, leftX, H - 60);
-
-      ctx.fillStyle = "#c5a059";
-      ctx.font = "14px Georgia, serif, KaiTi";
-      ctx.textAlign = "right";
-      ctx.fillText(`窟宇：${mural.cave}  |  断代：${mural.dynasty}期`, W - 40, H - 60);
+    // Draw background mural as solid backdrop first
+    if (muralImg.complete) {
+      const scale = Math.max(W / muralImg.width, H / muralImg.height);
+      const x = (W - muralImg.width * scale) / 2;
+      const y = (H - muralImg.height * scale) / 2;
+      ctx.drawImage(muralImg, x, y, muralImg.width * scale, muralImg.height * scale);
     }
 
-    // 4. Draw Royal Vermilion Red Stamp Cinnabar Seal (Adds extremely high authenticity)
-    drawRedSeal(ctx, W - 140, H - 150);
+    // Draw transparent user image in the foreground, scaled to fit/cover nicely
+    const aspect = userImg.width / userImg.height;
+    let drawW = W;
+    let drawH = W / aspect;
+    if (drawH < H) {
+      drawH = H;
+      drawW = drawH * aspect;
+    }
+    ctx.save();
+    // Directly draw user (the clean cutout) on top of the mural background
+    ctx.drawImage(userImg, W / 2 - drawW / 2, H / 2 - drawH / 2, drawW, drawH);
+    ctx.restore();
+
+    // Draw an elegant fine gold frame border around the final composite
+    ctx.strokeStyle = "#c5a059";
+    ctx.lineWidth = 12;
+    ctx.strokeRect(6, 6, W - 12, H - 12);
+
+    ctx.strokeStyle = "rgba(229, 193, 125, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(18, 18, W - 36, H - 36);
+
+    // Add clean, classy commemorative labeling at the bottom
+    ctx.fillStyle = "rgba(10, 8, 6, 0.75)";
+    ctx.fillRect(40, H - 110, W - 80, 80);
+
+    ctx.strokeStyle = "#c5a059";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(42, H - 108, W - 84, 76);
+
+    ctx.fillStyle = "#f5f2ed";
+    ctx.font = "bold 26px Georgia, serif, KaiTi";
+    ctx.textAlign = "center";
+    ctx.fillText(`《${mural.title}》 妙相合影`, W / 2, H - 75);
+
+    ctx.fillStyle = "#c5a059";
+    ctx.font = "14px Georgia, serif, KaiTi";
+    ctx.fillText(`${mural.cave} · ${mural.dynasty}期`, W / 2, H - 48);
 
     // 5. Draw digital preservation small signature text bottom center
     ctx.restore();
@@ -641,12 +689,20 @@ export default function MuralPhotoBooth({
                         </div>
                       ) : (
                         <div className="relative w-full h-full">
-                          {/* Live Video element */}
+                          {/* Live Video element (hidden, processed by canvas) */}
                           <video
                             ref={videoRef}
                             autoPlay
                             playsInline
-                            className="w-full h-full object-cover scale-x-[-1]"
+                            className="hidden"
+                          />
+
+                          {/* Live Composite Canvas for Real-Time Background Removal and Preview */}
+                          <canvas
+                            ref={liveCanvasRef}
+                            onClick={handleLiveCanvasClick}
+                            className="w-full h-full object-cover cursor-crosshair"
+                            title="点击画面任意位置可吸取背景颜色以精准校准抠像"
                           />
                           
                           {/* Central grid helper */}
@@ -655,17 +711,18 @@ export default function MuralPhotoBooth({
                             <div className="border-b border-r border-white/5"></div>
                             <div className="border-b border-white/5"></div>
                             <div className="border-b border-r border-white/5"></div>
-                            <div className="border-b border-r border-white/10 relative">
+                            <div className="border-b border-r border-[#c5a059]/15 relative">
                               {/* Oval face guide */}
-                              <div className="absolute inset-x-4 inset-y-2 border-2 border-dashed border-[#c5a059]/40 rounded-full" />
+                              <div className="absolute inset-x-6 inset-y-4 border border-dashed border-[#c5a059]/35 rounded-full animate-pulse" />
                             </div>
                             <div className="border-b border-white/5"></div>
                             <div className="border-r border-white/5"></div>
                             <div className="border-r border-white/5"></div>
                           </div>
 
-                          <div className="absolute bottom-3 left-3 bg-[#0a0907]/70 py-1 px-2.5 rounded-sm text-[10px] text-stone-400 font-serif border border-white/5">
-                            ● 莫高古镜：已开启广角人脸对齐
+                          <div className="absolute bottom-3 left-3 bg-[#0a0907]/90 py-1.5 px-3 rounded-xs text-[10px] text-[#c5a059] font-serif border border-[#c5a059]/20 flex items-center gap-1.5 shadow-md">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                            <span>● 莫高古镜：实时抠出人像，点击背景精准校色</span>
                           </div>
                         </div>
                       )}
@@ -754,79 +811,56 @@ export default function MuralPhotoBooth({
           {/* Right panel: Live composite output download / style selection */}
           <div className="lg:col-span-5 flex flex-col gap-5 bg-[#0f0e0c] p-4 border border-white/5 rounded-xs">
             
-            <h3 className="text-xs font-serif text-[#c5a059] tracking-widest uppercase pb-2 border-b border-white/5">1. 选择相印风格</h3>
-            
-            {/* Style grids */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => {
-                  setFrameStyle("feitian");
-                  audio.playSwipeSound();
-                }}
-                className={`p-2.5 text-left rounded-xs border transition-all cursor-pointer flex flex-col justify-between h-20 ${
-                  frameStyle === "feitian"
-                    ? "border-[#c5a059] bg-[#c5a059]/10"
-                    : "border-white/5 bg-[#161411] hover:border-white/20"
-                }`}
-              >
-                <span className="text-[11px] font-bold text-[#f5f2ed] font-serif block">莫高飞天入画</span>
-                <span className="text-[9px] text-[#8b7e6a] leading-tight font-sans">圆镜裁切融入，金色莲花古韵</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setFrameStyle("fresco-blend");
-                  audio.playSwipeSound();
-                }}
-                className={`p-2.5 text-left rounded-xs border transition-all cursor-pointer flex flex-col justify-between h-20 ${
-                  frameStyle === "fresco-blend"
-                    ? "border-[#c5a059] bg-[#c5a059]/10"
-                    : "border-white/5 bg-[#161411] hover:border-white/20"
-                }`}
-              >
-                <span className="text-[11px] font-bold text-[#f5f2ed] font-serif block">古壁融情双显</span>
-                <span className="text-[9px] text-[#8b7e6a] leading-tight font-sans">人像与斑驳岩彩重叠融合</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setFrameStyle("archivist");
-                  audio.playSwipeSound();
-                }}
-                className={`p-2.5 text-left rounded-xs border transition-all cursor-pointer flex flex-col justify-between h-20 ${
-                  frameStyle === "archivist"
-                    ? "border-[#c5a059] bg-[#c5a059]/10"
-                    : "border-white/5 bg-[#161411] hover:border-white/20"
-                }`}
-              >
-                <span className="text-[11px] font-bold text-[#f5f2ed] font-serif block">数字化守护人</span>
-                <span className="text-[9px] text-[#8b7e6a] leading-tight font-sans">明信片精装，修补守护者档案</span>
-              </button>
-            </div>
-
-            {/* Tone Selector */}
-            <h3 className="text-xs font-serif text-[#c5a059] tracking-widest uppercase pt-1 pb-2 border-b border-white/5">2. 选择滤镜影调</h3>
-            <div className="flex gap-2">
-              {(["vintage", "sepia", "normal"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => {
-                    setFilterMode(mode);
-                    audio.playSwipeSound();
-                  }}
-                  className={`flex-1 py-1.5 px-3 border text-[10px] font-serif rounded-xs transition-colors cursor-pointer capitalize ${
-                    filterMode === mode
-                      ? "border-[#c5a059] text-[#c5a059] bg-[#c5a059]/5"
-                      : "border-white/5 text-stone-400 bg-[#161411] hover:text-stone-300"
-                  }`}
-                >
-                  {mode === "vintage" ? "重彩暖金" : mode === "sepia" ? "流沙古褐色" : "无（原色）"}
-                </button>
-              ))}
-            </div>
+            {/* Chroma Key settings */}
+            {!currentSelectionImage && hasCameraAccess !== false && (
+              <div className="space-y-3 bg-[#161411] p-4 rounded-xs border border-[#c5a059]/10">
+                <div className="flex items-center justify-between border-b border-[#c5a059]/15 pb-2">
+                  <span className="text-xs font-serif text-[#c5a059] tracking-wider uppercase">1. 实时抠像边缘微调</span>
+                  <button
+                    onClick={() => {
+                      setIsKeyColorSampled(false);
+                      audio.playSwipeSound();
+                    }}
+                    className="text-[9px] px-2 py-0.5 bg-[#0f0e0c] border border-white/10 text-[#c5a059] rounded-xs hover:bg-[#c5a059]/10 transition-colors"
+                  >
+                    重置背景采样
+                  </button>
+                </div>
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <div className="flex justify-between text-[10px] text-stone-400 font-sans mb-1">
+                      <span>抠像容差 (Tolerance)</span>
+                      <span>{tolerance}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="15"
+                      max="110"
+                      value={tolerance}
+                      onChange={(e) => setTolerance(parseInt(e.target.value))}
+                      className="w-full accent-[#c5a059] h-1 bg-stone-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] text-stone-400 font-sans mb-1">
+                      <span>边缘羽化 (Feathering)</span>
+                      <span>{fadeRange}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="40"
+                      value={fadeRange}
+                      onChange={(e) => setFadeRange(parseInt(e.target.value))}
+                      className="w-full accent-[#c5a059] h-1 bg-stone-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Realtime compilation block */}
-            <h3 className="text-xs font-serif text-[#c5a059] tracking-widest uppercase pt-1 pb-2 border-b border-white/5">3. 留影神相一览</h3>
+            <h3 className="text-xs font-serif text-[#c5a059] tracking-widest uppercase pt-1 pb-2 border-b border-white/5">2. 留影神相一览</h3>
             <div className="relative aspect-[4/3] w-full bg-[#1c1a16] border border-dashed border-white/10 rounded-xs overflow-hidden flex items-center justify-center">
               {mergedResult ? (
                 <img
