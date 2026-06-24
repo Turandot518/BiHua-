@@ -710,7 +710,7 @@ export default function App() {
             className="flex-grow flex flex-col w-full"
           >
             {/* Primary Global Navbar */}
-            <header className="relative z-20 border-b border-[#c5a059]/20 bg-[#070605]/95 backdrop-blur-md px-12 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <header className="relative z-20 border-b border-[#c5a059]/20 bg-[#070605]/95 backdrop-blur-md px-4 sm:px-6 md:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
         
         {/* Brand Calligraph and logo titles */}
         <div className="flex items-center gap-4">
@@ -785,40 +785,93 @@ export default function App() {
       </header>
 
       {/* Main Core Body Segment */}
-      <main className="flex-1 relative z-10 w-full max-w-7xl mx-auto px-12 py-8 flex flex-col lg:flex-row gap-8 items-start justify-center">
+      <main className="flex-1 relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 flex flex-col lg:flex-row gap-5 items-start justify-center">
         
         {/* Left Column Section: Restoration Canvas Screen */}
-        <div className="w-full lg:flex-1 flex flex-col gap-6">
+        <div className="w-full lg:flex-1 flex flex-col gap-3">
           
           {/* Mural description card & active info banner */}
-          <div className="bg-[#14120f] border border-[#c5a059]/20 rounded-xs p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 select-none relative overflow-hidden shadow-xl">
+          <div className="bg-[#14120f] border border-[#c5a059]/20 rounded-xs p-3.5 flex flex-row items-center justify-between gap-4 select-none relative overflow-hidden shadow-lg">
             {/* Soft gold side strip */}
-            <div className="absolute top-0 left-0 w-[4px] h-full bg-[#c5a059]"></div>
+            <div className="absolute top-0 left-0 w-[3px] h-full bg-[#c5a059]"></div>
             
-            <div className="pl-3">
-              <p className="text-[10px] tracking-[0.25em] text-[#c5a059] font-serif uppercase font-semibold">
+            <div className="pl-2">
+              <span className="text-[9px] tracking-[0.25em] text-[#c5a059] font-serif uppercase font-semibold block leading-none">
                 CURRENT SCENE / 临摹复原空间
-              </p>
-              <h2 className="text-xl sm:text-2xl font-serif text-[#f5f2ed] mt-1.5 flex items-center gap-3 dunhuang-title-lg">
+              </span>
+              <h2 className="text-base sm:text-lg font-serif text-[#f5f2ed] mt-1.5 flex items-center gap-2.5 dunhuang-title-lg leading-none">
                 <span>{String(currentMuralIndex + 1).padStart(2, "0")} / {currentMural.title}</span>
-                <span className={`text-[11px] font-sans px-2.5 py-0.5 rounded border ${getDynastyBadgeStyle(currentMural.dynasty)}`}>
+                <span className={`text-[9px] font-sans px-1.5 py-0.5 rounded border ${getDynastyBadgeStyle(currentMural.dynasty)}`}>
                   {currentMural.cave} · {currentMural.dynasty}
                 </span>
               </h2>
             </div>
             
             {/* Real-time slider progress HUD component */}
-            <div className="flex flex-col sm:items-end gap-2 pr-2">
-              <div className="flex items-center gap-3 text-xs font-serif">
-                <span className="text-[#8b7e6a] tracking-widest uppercase text-[10px]">Restoration Progress</span>
-                <span className="text-lg font-light text-[#f5f2ed]">{progress}%</span>
+            <div className="flex items-center gap-3 pr-1">
+              <div className="flex items-center gap-1.5 text-xs font-serif">
+                <span className="text-[#8b7e6a] tracking-widest uppercase text-[9px]">修复进度</span>
+                <span className="text-sm font-semibold text-[#f5f2ed]">{progress}%</span>
               </div>
-              <div className="w-full sm:w-48 bg-stone-950/80 h-[3px] rounded-full overflow-hidden p-0 border border-white/5 shadow-inner">
+              <div className="hidden xs:block w-32 bg-stone-950/80 h-[4px] rounded-full overflow-hidden p-0 border border-white/5 shadow-inner">
                 <div
                   className="bg-[#c5a059] h-full transition-all duration-300 shadow-[0_0_8px_rgba(197,160,89,0.5)]"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
+            </div>
+          </div>
+
+          {/* Prominent Interaction Instructions */}
+          <div className="bg-gradient-to-r from-[#1c1813] via-[#120f0c] to-[#1c1813] border border-[#c5a059]/40 rounded-xs p-3 md:p-4 text-center select-none shadow-[0_4px_15px_rgba(197,160,89,0.1)] relative overflow-hidden group">
+            {/* Elegant glowing background element */}
+            <div className="absolute inset-0 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.03] pointer-events-none"></div>
+            
+            <div className="relative z-10 flex flex-col items-center justify-center gap-1">
+              {isCameraEnabled ? (
+                <>
+                  <div className="text-[#c5a059] text-base sm:text-lg md:text-xl font-bold tracking-widest leading-none flex items-center justify-center gap-2 font-serif">
+                    <Sparkles className="w-4.5 h-4.5 text-[#c5a059] animate-pulse shrink-0" />
+                    {interactionMode === "jigsaw" ? (
+                      <span>握拳 / 双指捏合 · 隔空拖拽碎片</span>
+                    ) : (
+                      <span>五指张开 · 镜头前隔空挥洒彩墨</span>
+                    )}
+                  </div>
+                  <div className="text-[#f5f2ed] text-xs sm:text-sm font-medium font-serif max-w-2xl leading-normal mt-0.5">
+                    {interactionMode === "jigsaw" ? (
+                      "在镜头前挥动五指移动，捏合五指（握拳）即可隔空抓取并放置碎片"
+                    ) : (
+                      "在摄像头前轻柔挥动五指，即可拂去历史尘埃，还原千年彩绘"
+                    )}
+                  </div>
+                  <div className="text-[#8b7e6a] text-[10px] mt-1 font-sans flex items-center gap-1.5 justify-center bg-[#0f0e0c]/65 px-2.5 py-0.5 rounded-full border border-white/5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>AI 感应已启用 · 建议距离摄像头 <strong className="text-[#c5a059]">0.5米 ~ 1.5米</strong> 交互效果最佳</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[#c5a059] text-base sm:text-lg md:text-xl font-bold tracking-widest leading-none flex items-center justify-center gap-2 font-serif">
+                    <Sparkles className="w-4.5 h-4.5 text-[#c5a059] animate-pulse shrink-0" />
+                    {interactionMode === "jigsaw" ? (
+                      <span>鼠标按住拖拽 · 完美拼合壁画</span>
+                    ) : (
+                      <span>鼠标滑动游走 · 勾勒复原彩绘</span>
+                    )}
+                  </div>
+                  <div className="text-[#f5f2ed] text-xs sm:text-sm font-medium font-serif max-w-2xl leading-normal mt-0.5">
+                    {interactionMode === "jigsaw" ? (
+                      "按住鼠标左键并拖动碎片到中间正确底图区域，完美拼合古迹"
+                    ) : (
+                      "直接在画布上滑动鼠标或手指触摸，妙笔生花唤醒沉睡千年的中国彩绘"
+                    )}
+                  </div>
+                  <div className="text-[#8b7e6a] text-[10px] mt-1 font-sans flex items-center gap-1.5 justify-center bg-[#0f0e0c]/65 px-2.5 py-0.5 rounded-full border border-white/5">
+                    <span>💡 提示：可开启右上角 <strong className="text-[#c5a059]">“AI 隔空手势”</strong> 体验科幻手感！</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1074,73 +1127,6 @@ export default function App() {
               <div className="flex justify-between text-[10px] text-[#8b7e6a] font-sans">
                 <span>微光(小)</span>
                 <span>佛光万丈(大)</span>
-              </div>
-            </div>
-
-            {/* Custom Transition Style Controller */}
-            <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
-              <span className="text-[10px] uppercase tracking-wider text-[#8b7e6a] font-serif">3. 莫高变景画卷过渡 (探索转场特效)</span>
-              <div className="grid grid-cols-3 gap-1.5 bg-[#0f0e0c] p-1 rounded-sm border border-white/5 font-sans">
-                <button
-                  onClick={() => {
-                    setTransitionStyle("mist");
-                    if (audioEnabled) audio.playChimes();
-                  }}
-                  className={`py-1.5 text-[10px] rounded-xs font-serif transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    transitionStyle === "mist"
-                      ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
-                      : "text-stone-400 hover:text-stone-200"
-                  }`}
-                  title="沙湮雾释：结合了金沙流转与雾气消解的华丽微缩粒子感与平滑高斯模糊"
-                >
-                  <span>雾消沙释</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setTransitionStyle("zoom");
-                    if (audioEnabled) audio.playChimes();
-                  }}
-                  className={`py-1.5 text-[10px] rounded-xs font-serif transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    transitionStyle === "zoom"
-                      ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
-                      : "text-stone-400 hover:text-stone-200"
-                  }`}
-                  title="极境深透：仿若移步走进深邃古窟，极具空间视差深度的缩放回旋"
-                >
-                  <span>极境深透</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setTransitionStyle("parallax");
-                    if (audioEnabled) audio.playChimes();
-                  }}
-                  className={`py-1.5 text-[10px] rounded-xs font-serif transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    transitionStyle === "parallax"
-                      ? "bg-[#c5a059] text-[#0f0e0c] font-bold"
-                      : "text-stone-400 hover:text-stone-200"
-                  }`}
-                  title="丝卷平移：丝绸平滑倾斜滑卷，重现拉开历史长卷的视差卷轴感"
-                >
-                  <span>丝卷平移</span>
-                </button>
-              </div>
-              <p className="text-[10px] text-[#8b7e6a] leading-normal font-sans text-stone-500">
-                {transitionStyle === "mist" && "✨ 佛国金沙般高斯模糊溶散，还原敦煌特有的尘沙漫漫效果。"}
-                {transitionStyle === "zoom" && "🔍 弹性镜头推拉与深邃回旋，如穿越佛龛古阁，神界呼之欲出。"}
-                {transitionStyle === "parallax" && "📜 经典山水长卷平滑卷轴平移，附带倾斜视差，气势非凡。"}
-              </p>
-            </div>
-
-            {/* Pentatonic Scale Synthesizer information */}
-            <div className="bg-[#0f0e0c] border border-[#c5a059]/20 rounded-xs p-4 flex gap-3 items-start">
-              <div className="text-lg">🏮</div>
-              <div className="flex-1 text-[11px] text-[#b5a796] leading-relaxed font-sans">
-                <span className="text-[#c5a059] font-semibold font-serif block mb-0.5">敦煌古风舒缓乐章合成室：</span>
-                {audioEnabled ? (
-                  "载入纯正五声音韵，已开启舒缓悠扬的莫高窟空灵背景乐。低沉佛堂木铎、古竹埙颤音与丝缕驼铃、古筝在耳边低吟，音律优雅，神迹随指勾彩。"
-                ) : (
-                  "古乐器鸣奏与背景乐已静音。可轻触上方提灯恢复空灵舒缓的敦煌丝竹声乐体验。"
-                )}
               </div>
             </div>
           </div>

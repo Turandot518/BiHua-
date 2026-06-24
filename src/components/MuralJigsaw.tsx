@@ -111,7 +111,7 @@ export default function MuralJigsaw({
       
       const roundedW = Math.round(Math.max(width, 280));
       // Adaptive height preserving golden display proportions
-      const roundedH = Math.round(Math.min(roundedW * 0.618, window.innerHeight * 0.58));
+      const roundedH = Math.round(Math.min(roundedW * 0.52, window.innerHeight * 0.46));
       
       setDimensions((current) => {
         if (Math.abs(current.width - roundedW) > 16 || Math.abs(current.height - roundedH) > 16) {

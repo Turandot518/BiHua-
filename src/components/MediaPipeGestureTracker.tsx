@@ -642,7 +642,7 @@ function MediaPipeGestureTrackerInner({
       window.removeEventListener("click", handleFirstUserInteraction);
       window.removeEventListener("pointerdown", handleFirstUserInteraction);
     };
-  }, [loading, isActive, retryTrigger]);
+  }, [loading, isActive, retryTrigger, portalTarget]);
 
   function stopCameraAndTracking() {
     if (animationFrameIdRef.current !== null) {
@@ -758,24 +758,6 @@ function MediaPipeGestureTrackerInner({
           style={{ display: running && isActive ? "block" : "none" }}
         />
 
-        {/* Animated Swipe Left Flash Overlay */}
-        <AnimatePresence>
-          {swipeTriggered && (
-            <motion.div
-              initial={{ opacity: 0, x: "100%" }}
-              animate={{ opacity: 1, x: "0%" }}
-              exit={{ opacity: 0, x: "-100%" }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute inset-0 bg-gradient-to-l from-transparent via-[#c5a059]/20 to-[#c5a059]/40 pointer-events-none flex items-center justify-center z-20 border border-[#c5a059]"
-            >
-              <div className="bg-[#0f0e0c]/85 border border-[#c5a059]/50 px-3 py-1.5 rounded-sm flex items-center gap-2 shadow-xl">
-                <Sparkles className="w-3.5 h-3.5 text-[#c5a059] animate-spin" />
-                <span className="text-[#c5a059] text-[11px] font-serif font-bold tracking-widest">📜 挥手徐来 莫高新章</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Real-time Hand Aura Tracking Cursor */}
         <AnimatePresence>
           {running && isActive && handInfo && (
@@ -875,14 +857,9 @@ function MediaPipeGestureTrackerInner({
       </div>
 
       {/* Mini Hint Text */}
-      <div className="mt-3.5 text-[11px] text-[#8b7e6a] text-center w-full leading-relaxed select-none font-serif">
-        {running ? (
-          <div className="bg-[#0f0e0c] py-2 px-3 rounded-xs border border-white/5">
-            <div className="text-[#e0d8cf]">五指张开在镜头前移动上色</div>
-            <div className="text-[#c5a059] mt-0.5">从右往左快速挥手无缝翻卷</div>
-          </div>
-        ) : (
-          <div className="px-2 text-stone-400 text-[10px]">
+      <div className="mt-2 text-center w-full select-none font-serif">
+        {!running && (
+          <div className="px-2 text-stone-400 text-[10px] leading-relaxed">
             提示：隔空手势互动需要相机权限。如果已被禁用，请在浏览器地址栏（小锁图标）中启用，然后点击 [重新请求并重试] 重新触发生命周期。
           </div>
         )}

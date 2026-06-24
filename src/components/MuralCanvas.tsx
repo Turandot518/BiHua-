@@ -158,7 +158,7 @@ export default function MuralCanvas({
       
       // Keep beautiful widescreen aspect ratio
       const targetWidth = Math.max(width, 280);
-      const targetHeight = Math.min(targetWidth * 0.625, window.innerHeight * 0.62); // 16:10 or capped by viewport
+      const targetHeight = Math.min(targetWidth * 0.52, window.innerHeight * 0.46); // Optimized widescreen ratio to prevent folding
 
       // Round layout parameters to lock integer coordinates, preventing sub-pixel layout recalculation loops
       const roundedW = Math.round(targetWidth);
@@ -304,12 +304,12 @@ export default function MuralCanvas({
     if (localCursor && isHovered) {
       // For local pointer:
       // In spotlight mode: Hovering -> Spotlight ON. Clicking down -> Spotlight OFF (simulates pinch gesture).
-      // In paint mode: Only paints when clicking and dragging.
+      // In paint mode: Hovering OR clicking both paint to maximize fluid interaction.
       const isSpotlightOn = !localCursor.isDown;
       return {
         x: localCursor.x,
         y: localCursor.y,
-        isActive: localCursor.isDown, // For paint mode
+        isActive: interactionMode === "paint" ? true : localCursor.isDown, // Paint on hover or drag
         isSpotlightOn,
         isOpen: !localCursor.isDown,
         isAI: false
@@ -323,7 +323,8 @@ export default function MuralCanvas({
     localCursor?.isDown,
     isHovered,
     dimensions.width,
-    dimensions.height
+    dimensions.height,
+    interactionMode
   ]);
 
   // Paint onto the offscreen mask & handle composition loop

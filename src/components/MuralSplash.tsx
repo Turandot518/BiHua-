@@ -94,6 +94,7 @@ export default function MuralSplash({
   const [showGuideTip, setShowGuideTip] = useState<boolean>(true);
   const [textRevealed, setTextRevealed] = useState<boolean>(false);
   const [sweepProgress, setSweepProgress] = useState<number>(0);
+  const sweepProgressRef = useRef<number>(0);
   const textRevealedRef = useRef<boolean>(false);
   const [allRibbonsShown, setAllRibbonsShown] = useState<boolean>(false);
   const allRibbonsShownRef = useRef<boolean>(false);
@@ -234,10 +235,14 @@ export default function MuralSplash({
 
         // Calculate sweep progress when user moves cursor
         if (y > window.innerHeight * 0.02 && y < window.innerHeight * 0.98) {
-          setSweepProgress((prev) => {
-            const next = prev + dist * 0.15; // Enhanced responsive action to grow ribbon faster
-            return Math.min(100, next);
-          });
+          if (sweepProgressRef.current < 100) {
+            setSweepProgress((prev) => {
+              const next = prev + dist * 0.25; // Balanced responsive action to grow ribbon
+              const roundedNext = Math.min(100, next);
+              sweepProgressRef.current = roundedNext;
+              return roundedNext;
+            });
+          }
         }
       } else {
         waveSpeedRef.current = Math.min(1.8, waveSpeedRef.current + 0.02);
@@ -270,17 +275,13 @@ export default function MuralSplash({
 
           // Waving gesture plucking accumulation
           if (hY > H * 0.02 && hY < H * 0.98) {
-            setSweepProgress((prev) => {
-              if (prev < 100) {
-                const next = prev + dist * 0.12; // Calibrated ultra-responsive camera waving progress integration
-                return Math.min(100, next);
-              }
-              return 100;
-            });
-
-            // If ribbons are complete, detecting downward gesture (swipe screen down) triggers text reveal
-            if (sweepProgress >= 100 && dy > 4 && !textRevealedRef.current) {
-              triggerTextReveal();
+            if (sweepProgressRef.current < 100) {
+              setSweepProgress((prev) => {
+                const next = prev + dist * 0.25; // Calibrated ultra-responsive camera waving progress integration
+                const roundedNext = Math.min(100, next);
+                sweepProgressRef.current = roundedNext;
+                return roundedNext;
+              });
             }
           }
         }
@@ -332,9 +333,9 @@ export default function MuralSplash({
 
       // --- 2. Elegant Wavy Harmonic Silk Ribbons (飞天丝带：从左至右，先后缓慢出现，厚重丝滑，宽窄不一如立体交织，且颜色与选定矿物色渐变色融合) ---
       // Smoothly interpolate current drawing progress to eliminate any step stutter for elite visual flow
-      smoothedProgressRef.current += (sweepProgress - smoothedProgressRef.current) * 0.045;
-      if (Math.abs(sweepProgress - smoothedProgressRef.current) < 0.05) {
-        smoothedProgressRef.current = sweepProgress;
+      smoothedProgressRef.current += (sweepProgressRef.current - smoothedProgressRef.current) * 0.045;
+      if (Math.abs(sweepProgressRef.current - smoothedProgressRef.current) < 0.05) {
+        smoothedProgressRef.current = sweepProgressRef.current;
       }
 
       const currentProgress = smoothedProgressRef.current;
@@ -686,13 +687,21 @@ export default function MuralSplash({
       sparksRef.current = survivors;
       ctx.restore();
 
-      // --- 5. Interactive Ambient Halo for Gesturing Hand (MediaPipe integration) ---
-      if (handData) {
-        const hX = handData.x * W;
-        const hY = handData.y * H;
+      // --- 5. Interactive Ambient Halo for Gesturing Hand or Mouse Cursor (MediaPipe / Cursor Integration) ---
+      let interactX: number | null = null;
+      let interactY: number | null = null;
 
+      if (handData) {
+        interactX = handData.x * W;
+        interactY = handData.y * H;
+      } else if (prevPointerRef.current) {
+        interactX = prevPointerRef.current.x;
+        interactY = prevPointerRef.current.y;
+      }
+
+      if (interactX !== null && interactY !== null) {
         ctx.save();
-        ctx.translate(hX, hY);
+        ctx.translate(interactX, interactY);
         ctx.rotate(timeRef.current * 0.012);
 
         // Starry focal ring
@@ -721,12 +730,12 @@ export default function MuralSplash({
         }
         ctx.restore();
 
-        // Spawn beautiful little sparkling star trails while gesturing
-        if (timeRef.current % 5 === 0) {
+        // Spawn beautiful little sparkling star trails while gesturing or moving cursor
+        if (timeRef.current % 4 === 0) {
           const pigment = DUNHUANG_PIGMENTS[Math.floor(Math.random() * DUNHUANG_PIGMENTS.length)];
           sparksRef.current.push({
-            x: hX,
-            y: hY,
+            x: interactX,
+            y: interactY,
             vx: (Math.random() - 0.5) * 1.8,
             vy: (Math.random() - 0.5) * 1.8 - 0.6,
             alpha: 0.85,
@@ -767,12 +776,7 @@ export default function MuralSplash({
     e.stopPropagation();
     triggerFirework(e.clientX, e.clientY);
     
-    if (sweepProgress < 100) {
-      setSweepProgress((prev) => {
-        const next = prev + 8; // Click/tap contributes slowly (about 8% per click) to incremental ribbon reveal
-        return Math.min(100, next);
-      });
-    } else if (!textRevealed) {
+    if (sweepProgress >= 100 && !textRevealed) {
       // If ribbons are fully drawn and background has faded, click anywhere in the container triggers the scroll down!
       triggerTextReveal();
     }
