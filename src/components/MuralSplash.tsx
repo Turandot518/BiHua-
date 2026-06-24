@@ -237,7 +237,7 @@ export default function MuralSplash({
         if (y > window.innerHeight * 0.02 && y < window.innerHeight * 0.98) {
           if (sweepProgressRef.current < 100) {
             setSweepProgress((prev) => {
-              const next = prev + dist * 0.01; // Extremely gentle contribution for high elegance
+              const next = prev + dist * 0.05; // Balanced interactive sliding contribution
               const roundedNext = Math.min(100, next);
               sweepProgressRef.current = roundedNext;
               return roundedNext;
@@ -262,16 +262,6 @@ export default function MuralSplash({
       currentRgbRef.current.g += (targetRgbRef.current.g - currentRgbRef.current.g) * 0.08;
       currentRgbRef.current.b += (targetRgbRef.current.b - currentRgbRef.current.b) * 0.08;
 
-      // Slowly and automatically grow progress to guarantee a smooth, cinematic entrance
-      if (sweepProgressRef.current < 100) {
-        setSweepProgress((prev) => {
-          const next = prev + 0.15; // Slow, smooth auto-increase (takes about 11 seconds to gracefully reveal all)
-          const roundedNext = Math.min(100, next);
-          sweepProgressRef.current = roundedNext;
-          return roundedNext;
-        });
-      }
-
       // Update gesture tracker velocity if available
       if (handData) {
         const hX = handData.x * W;
@@ -287,7 +277,7 @@ export default function MuralSplash({
           if (hY > H * 0.02 && hY < H * 0.98) {
             if (sweepProgressRef.current < 100) {
               setSweepProgress((prev) => {
-                const next = prev + dist * 0.01; // Extremely gentle contribution for high elegance
+                const next = prev + dist * 0.05; // Balanced interactive gesture contribution
                 const roundedNext = Math.min(100, next);
                 sweepProgressRef.current = roundedNext;
                 return roundedNext;
@@ -343,7 +333,7 @@ export default function MuralSplash({
 
       // --- 2. Elegant Wavy Harmonic Silk Ribbons (飞天丝带：从左至右，先后缓慢出现，厚重丝滑，宽窄不一如立体交织，且颜色与选定矿物色渐变色融合) ---
       // Smoothly interpolate current drawing progress to eliminate any step stutter for elite visual flow
-      smoothedProgressRef.current += (sweepProgressRef.current - smoothedProgressRef.current) * 0.012;
+      smoothedProgressRef.current += (sweepProgressRef.current - smoothedProgressRef.current) * 0.035;
       if (Math.abs(sweepProgressRef.current - smoothedProgressRef.current) < 0.05) {
         smoothedProgressRef.current = sweepProgressRef.current;
       }

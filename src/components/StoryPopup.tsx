@@ -5,7 +5,7 @@
 
 import { motion } from "motion/react";
 import { MuralInfo } from "../types";
-import { BookOpen, MapPin, Sparkles, Paintbrush, ArrowLeft, RotateCcw, X, Compass, Camera } from "lucide-react";
+import { BookOpen, MapPin, Sparkles, Paintbrush, ArrowLeft, RotateCcw, X, Compass } from "lucide-react";
 import { useEffect, useState } from "react";
 import { audio } from "../utils/audio";
 
@@ -18,7 +18,6 @@ interface StoryPopupProps {
   isLastMural: boolean;
   swipeLockTimer?: number;
   onReturnToLibrary: () => void;
-  onOpenPhotoBooth?: () => void;
 }
 
 export default function StoryPopup({
@@ -30,7 +29,6 @@ export default function StoryPopup({
   isLastMural,
   swipeLockTimer = 0,
   onReturnToLibrary,
-  onOpenPhotoBooth
 }: StoryPopupProps) {
   const [countdown, setCountdown] = useState<number>(4);
   
@@ -198,22 +196,6 @@ export default function StoryPopup({
                   </>
                 )}
               </button>
-
-              {onOpenPhotoBooth && (
-                <button
-                  onClick={onOpenPhotoBooth}
-                  disabled={countdown > 0}
-                  className={`w-full sm:w-auto px-5 py-2.5 text-xs rounded-xs flex items-center justify-center gap-2 font-serif font-bold transition-all tracking-wider ${
-                    countdown > 0 
-                      ? "bg-[#1a1815] border border-white/5 text-stone-600 cursor-not-allowed" 
-                      : "bg-[#b3322a] hover:bg-[#b3322a]/90 text-[#f5f2ed] border border-[#b3322a]/30 hover:border-[#b3322a] cursor-pointer shadow-[0_4px_12px_rgba(179,50,42,0.3)] hover:shadow-[0_6px_18px_rgba(179,50,42,0.5)]"
-                  }`}
-                  title="开启古镜，与此幅精心复原的壁画合影留念"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>与壁画合影</span>
-                </button>
-              )}
 
               {!isLastMural && (
                 <button

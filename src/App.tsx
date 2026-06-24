@@ -13,7 +13,6 @@ import MuralJigsaw from "./components/MuralJigsaw";
 import StoryPopup from "./components/StoryPopup";
 import MuralLibrary from "./components/MuralLibrary";
 import MuralSplash from "./components/MuralSplash";
-import MuralPhotoBooth from "./components/MuralPhotoBooth";
 import CanvasErrorBoundary from "./components/CanvasErrorBoundary";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -74,7 +73,6 @@ export default function App() {
   // Progress and story modals
   const [progress, setProgress] = useState<number>(0);
   const [storyOpen, setStoryOpen] = useState<boolean>(false);
-  const [photoBoothOpen, setPhotoBoothOpen] = useState<boolean>(false);
   const [hasOpenedStory, setHasOpenedStory] = useState<boolean>(false);
   const [libraryOpen, setLibraryOpen] = useState<boolean>(false);
   const [swipeLockTimer, setSwipeLockTimer] = useState<number>(0);
@@ -88,25 +86,6 @@ export default function App() {
   // Dynamic Google Search Grounding data for Duhuang timely culture
   const [dunhuangToday, setDunhuangToday] = useState<DunhuangDayInfo | null>(null);
   const [loadingToday, setLoadingToday] = useState<boolean>(true);
-  const [surpriseTip, setSurpriseTip] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (interactionMode === "paint") {
-      setSurpriseTip("完成涂色有惊喜哦");
-      const timer = setTimeout(() => {
-        setSurpriseTip(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    } else if (interactionMode === "jigsaw") {
-      setSurpriseTip("完成拼图有惊喜哦");
-      const timer = setTimeout(() => {
-        setSurpriseTip(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    } else {
-      setSurpriseTip(null);
-    }
-  }, [interactionMode, currentMuralIndex]);
 
   useEffect(() => {
     fetch("/api/dunhuang-today")
@@ -395,39 +374,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
-            {/* Real-time Google Search Grounded Culture Banner */}
-            {dunhuangToday && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="mb-6 p-3 px-4 rounded-xs bg-[#16120e]/95 border border-[#c5a059]/25 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs relative overflow-hidden pointer-events-auto"
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-[#ff6459]" />
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-serif font-bold text-white bg-[#ff6459] rounded-sm tracking-wider uppercase">
-                    {dunhuangToday.heading || "实时快讯"}
-                  </span>
-                  <div className="min-w-0 flex-1 md:flex md:items-center gap-3">
-                    <span className="font-serif font-bold text-[#f5f2ed] tracking-wider shrink-0">
-                      {dunhuangToday.title}
-                      {dunhuangToday.dynasty && (
-                        <span className="text-[10px] text-[#c5a059] ml-1.5 font-normal">({dunhuangToday.dynasty})</span>
-                      )}
-                    </span>
-                    <span className="text-[#c6bdae] font-serif tracking-wide truncate block md:inline md:max-w-2xl select-text">
-                      {dunhuangToday.content}
-                    </span>
-                  </div>
-                </div>
-                {dunhuangToday.source && (
-                  <span className="shrink-0 text-[10px] text-[#8b7e6a] font-serif italic self-end md:self-auto select-all">
-                    出处: {dunhuangToday.source}
-                  </span>
-                )}
-              </motion.div>
-            )}
 
             {/* Grand Unified Historical Mural Classification & Preservation Hall */}
             <div className="bg-[#14120f]/95 border border-[#c5a059]/20 p-5 sm:p-6 rounded-md mb-6 flex flex-col gap-6 select-none shadow-2xl relative overflow-hidden">
@@ -718,6 +664,39 @@ export default function App() {
               );
             })()}
             </div>
+
+            {/* Real-time Google Search Grounded Culture Banner placed at the bottom */}
+            {dunhuangToday && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mt-6 p-3 px-4 rounded-xs bg-[#16120e]/95 border border-[#c5a059]/25 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs relative overflow-hidden pointer-events-auto"
+              >
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#ff6459]" />
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-serif font-bold text-white bg-[#ff6459] rounded-sm tracking-wider uppercase">
+                    {dunhuangToday.heading || "实时快讯"}
+                  </span>
+                  <div className="min-w-0 flex-1 md:flex md:items-center gap-3">
+                    <span className="font-serif font-bold text-[#f5f2ed] tracking-wider shrink-0">
+                      {dunhuangToday.title}
+                      {dunhuangToday.dynasty && (
+                        <span className="text-[10px] text-[#c5a059] ml-1.5 font-normal">({dunhuangToday.dynasty})</span>
+                      )}
+                    </span>
+                    <span className="text-[#c6bdae] font-serif tracking-wide truncate block md:inline md:max-w-2xl select-text">
+                      {dunhuangToday.content}
+                    </span>
+                  </div>
+                </div>
+                {dunhuangToday.source && (
+                  <span className="shrink-0 text-[10px] text-[#8b7e6a] font-serif italic self-end md:self-auto select-all">
+                    出处: {dunhuangToday.source}
+                  </span>
+                )}
+              </motion.div>
+            )}
           </motion.div>
         ) : (
           <motion.div
@@ -852,18 +831,18 @@ export default function App() {
                   <div className="text-[#c5a059] text-base sm:text-lg md:text-xl font-bold tracking-widest leading-none flex items-center justify-center gap-2 font-serif">
                     <Sparkles className="w-4.5 h-4.5 text-[#c5a059] animate-pulse shrink-0" />
                     {interactionMode === "jigsaw" ? (
-                      <span>握拳 / 双指捏合 · 隔空拖拽碎片</span>
+                      <span>握拳捏合抓取 · 五指张开放下拼图</span>
                     ) : interactionMode === "spotlight" ? (
-                      <span>五指张开 · 镜头前移动手势操控聚光灯</span>
+                      <span>张开手打开手电筒 · 握拳关闭手电筒</span>
                     ) : (
                       <span>五指张开 · 镜头前隔空挥洒彩墨</span>
                     )}
                   </div>
                   <div className="text-[#f5f2ed] text-xs sm:text-sm font-medium font-serif max-w-2xl leading-normal mt-0.5">
                     {interactionMode === "jigsaw" ? (
-                      "在镜头前挥动五指移动，捏合五指（握拳）即可隔空抓取并放置碎片"
+                      "在镜头前移动五指，捏合五指（握拳）即可隔空抓取，五指张开即可放下拼图"
                     ) : interactionMode === "spotlight" ? (
-                      "在摄像头前移动五指，操控聚光灯移动，照亮并探索古老壁画的深层细节"
+                      "在摄像头前五指张开（张开手）即可打开并操控手电筒，握拳即可关闭手电筒"
                     ) : (
                       "在摄像头前轻柔挥动五指，即可拂去历史尘埃，还原千年彩绘"
                     )}
@@ -880,7 +859,7 @@ export default function App() {
                     {interactionMode === "jigsaw" ? (
                       <span>鼠标按住拖拽 · 完美拼合壁画</span>
                     ) : interactionMode === "spotlight" ? (
-                      <span>鼠标滑动移动 · 操控探索聚光灯</span>
+                      <span>鼠标移动打开手电筒 · 按住关闭手电筒</span>
                     ) : (
                       <span>鼠标滑动游走 · 勾勒复原彩绘</span>
                     )}
@@ -889,7 +868,7 @@ export default function App() {
                     {interactionMode === "jigsaw" ? (
                       "按住鼠标左键并拖动碎片到中间正确底图区域，完美拼合古迹"
                     ) : interactionMode === "spotlight" ? (
-                      "直接在画布上滑动鼠标或手指触摸，操控神奇的聚光灯，探索隐藏在岁月中精美的敦煌壁画故事与神采"
+                      "直接在画布上滑动鼠标，即可用手电筒照亮探索壁画细节，按住鼠标左键（握拳）即可关闭手电筒"
                     ) : (
                       "直接在画布上滑动鼠标或手指触摸，妙笔生花唤醒沉睡千年的中国彩绘"
                     )}
@@ -904,26 +883,6 @@ export default function App() {
 
           {/* The interactive Compositor Canvas element */}
           <div className="relative overflow-hidden w-full rounded-xs">
-            {/* Surprise Tip overlay */}
-            <AnimatePresence>
-              {surpriseTip && (
-                <motion.div
-                  initial={{ opacity: 0, y: -15, scale: 0.92 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 15, scale: 0.92 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none max-w-[90%] text-center"
-                >
-                  <div className="bg-[#14120f]/95 border border-[#c5a059] px-6 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(197,160,89,0.35)] backdrop-blur-md">
-                    <Sparkles className="w-4 h-4 text-[#c5a059] shrink-0 animate-pulse" />
-                    <span className="text-[#f5f2ed] font-serif text-xs md:text-sm tracking-[0.15em] font-medium leading-none">
-                      {surpriseTip}
-                    </span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             <CanvasErrorBoundary fallbackKey={`${currentMuralIndex}-${interactionMode}-${resetKey}`}>
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1047,18 +1006,6 @@ export default function App() {
                 >
                   <CheckCircle className="w-3.5 h-3.5" />
                   <span>开启修复日志 · 《{currentMural.title}》</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setPhotoBoothOpen(true);
-                    if (audioEnabled) audio.playChimes();
-                  }}
-                  className="px-4.5 py-2.5 bg-[#b3322a] hover:bg-[#b3322a]/95 text-white font-serif font-bold text-xs rounded-xs flex items-center gap-1.5 transition-all cursor-pointer tracking-wider shadow-[0_4px_12px_rgba(179,50,42,0.3)]"
-                  title="与本幅修复完成后的壁画进行合影，并下载精美信片"
-                >
-                  <Camera className="w-3.5 h-3.5 animate-bounce" />
-                  <span>与壁画合影</span>
                 </button>
               </div>
             ) : (
@@ -1204,21 +1151,6 @@ export default function App() {
             isLastMural={currentMuralIndex === muralsData.length - 1}
             swipeLockTimer={swipeLockTimer}
             onReturnToLibrary={handleReturnToLibraryFromStory}
-            onOpenPhotoBooth={() => {
-              setStoryOpen(false);
-              setPhotoBoothOpen(true);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Commemorative photo booth (莫高飞天合影镜) page overlay */}
-      <AnimatePresence>
-        {photoBoothOpen && (
-          <MuralPhotoBooth
-            mural={currentMural}
-            isOpen={photoBoothOpen}
-            onClose={() => setPhotoBoothOpen(false)}
           />
         )}
       </AnimatePresence>

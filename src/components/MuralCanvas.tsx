@@ -674,7 +674,7 @@ export default function MuralCanvas({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#c5a059]"></div>
             <span className="text-xs text-[#b5a796] font-serif">
-              模式：{interactionMode === "paint" ? "色彩复原（挥动以拂去黑白，还原古彩）" : "聚光探秘（手掌打开开灯照亮，隔空缩捏息火闭灯）"}
+              模式：{interactionMode === "paint" ? "色彩复原（挥动以拂去黑白，还原古彩）" : "聚光探秘（张开手打开手电筒，握拳关闭手电筒）"}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[#c5a059] text-[11px] font-serif">
